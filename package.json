@@ -1,0 +1,20 @@
+{
+  "name": "bot-tele-ditsstore",
+  "version": "1.0.0",
+  "description": "Bot Telegram Auto Order DitsStore",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "moment-timezone": "^0.5.45",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
