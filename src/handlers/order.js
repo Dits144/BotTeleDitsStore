@@ -77,29 +77,58 @@ module.exports = (bot) => {
     });
 
     bot.action('menu_riwayat', async (ctx) => {
-        const user = await getOrCreateUser(ctx);
-        const txs = await getUserTransactions(user.id);
-        
-        if (txs.length === 0) {
-            return ctx.editMessageText('Belum ada riwayat transaksi.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]));
-        }
+        await handleRiwayat(ctx, true);
+    });
 
-        let text = `🧾 RIWAYAT TRANSAKSI\n\n`;
-        txs.forEach(t => {
-            text += `ID: ${t.invoice_id || t.id} | ${t.created_at}\n`;
-            text += `Produk: ${t.product_name} - ${t.variant_name || '-'}\n`;
-            text += `Qty: ${t.qty} | Total: Rp ${formatRupiah(t.total_price)}\n`;
-            text += `Status: ${t.status}\n\n`;
-        });
-
-        await ctx.editMessageText(text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
+    bot.command('riwayat', async (ctx) => {
+        await handleRiwayat(ctx, false);
     });
 
     bot.action('menu_cara_order', async (ctx) => {
-        const text = `📖 CARA ORDER\n\n1. Klik List Produk\n2. Pilih produk\n3. Pilih varian\n4. Atur jumlah pesanan\n5. Bayar pakai saldo\n6. Produk dikirim otomatis oleh bot`;
-        await ctx.editMessageText(text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
+        await handleCaraOrder(ctx, true);
+    });
+
+    bot.command('caraorder', async (ctx) => {
+        await handleCaraOrder(ctx, false);
     });
 };
+
+async function handleRiwayat(ctx, isEdit) {
+    const user = await getOrCreateUser(ctx);
+    const { getUserTransactions } = require('../services/orderService');
+    const txs = await getUserTransactions(user.id);
+    
+    if (txs.length === 0) {
+        const txt = 'Belum ada riwayat transaksi.';
+        const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
+        return isEdit ? ctx.editMessageText(txt, kb) : ctx.reply(txt, kb);
+    }
+
+    let text = `🧾 RIWAYAT TRANSAKSI\n\n`;
+    txs.forEach(t => {
+        text += `ID: ${t.invoice_id || t.id} | ${t.created_at}\n`;
+        text += `Produk: ${t.product_name} - ${t.variant_name || '-'}\n`;
+        text += `Qty: ${t.qty} | Total: Rp ${formatRupiah(t.total_price)}\n`;
+        text += `Status: ${t.status}\n\n`;
+    });
+
+    const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
+    if (isEdit) {
+        await ctx.editMessageText(text, kb).catch(()=>{});
+    } else {
+        await ctx.reply(text, kb);
+    }
+}
+
+async function handleCaraOrder(ctx, isEdit) {
+    const text = `📖 CARA ORDER\n\n1. Klik List Produk\n2. Pilih produk\n3. Pilih varian\n4. Atur jumlah pesanan\n5. Bayar pakai saldo\n6. Produk dikirim otomatis oleh bot`;
+    const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
+    if (isEdit) {
+        await ctx.editMessageText(text, kb).catch(()=>{});
+    } else {
+        await ctx.reply(text, kb);
+    }
+}
 
 async function renderOrderConf(ctx) {
     try {

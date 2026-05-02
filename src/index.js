@@ -41,6 +41,27 @@ async function startBot() {
         await runMigrations();
         console.log('Database ready.');
 
+        // Setup commands menu
+        const userCommands = [
+            { command: 'start', description: '🚀 Mulai bot & lihat produk' },
+            { command: 'stok', description: '📦 Lihat stok produk' },
+            { command: 'saldo', description: '💰 Cek & isi saldo' },
+            { command: 'riwayat', description: '📜 Riwayat transaksi' },
+            { command: 'caraorder', description: '📘 Cara order' }
+        ];
+        
+        await bot.telegram.setMyCommands(userCommands, { scope: { type: 'default' } }).catch(console.error);
+
+        if (env.OWNER_ID) {
+            const adminCommands = [
+                ...userCommands,
+                { command: 'adminmenu', description: '🛠 Menu admin (khusus admin)' }
+            ];
+            await bot.telegram.setMyCommands(adminCommands, { 
+                scope: { type: 'chat', chat_id: env.OWNER_ID } 
+            }).catch(console.error);
+        }
+
         console.log('Starting bot...');
         bot.launch();
         console.log('Bot is running!');

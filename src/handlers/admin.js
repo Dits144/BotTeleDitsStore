@@ -24,9 +24,7 @@ module.exports = (bot) => {
         if (user.role === 'admin') {
             await ctx.reply('Menu Admin:', adminMenuKeyboard());
         } else {
-            ctx.session = ctx.session || {};
-            ctx.session = ctx.session || {}; ctx.session.admin = { step: 'input_admin_password' };
-            await ctx.reply('Masukkan password admin:');
+            await ctx.reply('❌ Anda tidak memiliki akses admin.');
         }
     });
 
