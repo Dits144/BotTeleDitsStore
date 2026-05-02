@@ -21,13 +21,16 @@ module.exports = (bot) => {
 
     bot.action('topup_manual', async (ctx) => {
         ctx.session = ctx.session || {};
-        ctx.session.step = 'input_topup_nominal';
+        ctx.session.user_state = 'WAITING_TOPUP_AMOUNT';
         await ctx.reply('Silakan ketik nominal top up (minimal Rp 5.000).\nContoh: 15000', Markup.inlineKeyboard([[Markup.button.callback('Batal', 'cancel_topup')]]));
         ctx.answerCbQuery().catch(()=>{});
     });
 
     bot.action('cancel_topup', async (ctx) => {
-        if (ctx.session) ctx.session.step = null;
+        if (ctx.session) {
+            ctx.session.step = null;
+            ctx.session.user_state = null;
+        }
         await ctx.editMessageText('Top up dibatalkan.').catch(()=>{});
     });
 
@@ -100,6 +103,22 @@ module.exports = (bot) => {
     });
 
     bot.on('text', async (ctx, next) => {
+        if (ctx.session && ctx.session.user_state === 'WAITING_TOPUP_AMOUNT') {
+            const input = ctx.message.text.replace(/[^0-9]/g, '');
+            const nominal = parseInt(input);
+            
+            if (isNaN(nominal) || nominal <= 0) {
+                return ctx.reply('❌ Nominal tidak valid. Contoh: 15000');
+            }
+            if (nominal < 5000) {
+                return ctx.reply('❌ Minimal top up Rp 5.000.');
+            }
+            
+            ctx.session.user_state = null;
+            await processTopupNominal(ctx, nominal);
+            return;
+        }
+
         if (ctx.session && ctx.session.topup_state === 'WAITING_PROOF') {
             return ctx.reply('❌ Mohon kirim foto/screenshot bukti transfer.');
         }
@@ -110,13 +129,18 @@ module.exports = (bot) => {
 async function showSaldoMenu(ctx, isEdit = false) {
     try {
         const user = await getOrCreateUser(ctx);
-        const text = `Detail Saldo Anda di DitsStore\n\nSaldo Anda saat ini: Rp ${formatRupiah(user.saldo)}\n\nMau isi saldo? Silakan pilih nominal dibawah ini:`;
+        const text = `📍 /start > Saldo\n\nDetail Saldo Anda di DitsStore\n\nSaldo Anda saat ini: Rp ${formatRupiah(user.saldo)}\n\nMau isi saldo? Silakan pilih nominal dibawah ini:`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('Rp 10.000', 'topup_10000'), Markup.button.callback('Rp 25.000', 'topup_25000')],
             [Markup.button.callback('Rp 50.000', 'topup_50000'), Markup.button.callback('Rp 100.000', 'topup_100000')],
             [Markup.button.callback('Isi Nominal', 'topup_manual')],
-            [Markup.button.callback('⬅️ Back', 'menu_utama')]
+            [Markup.button.callback('⬅️ Back', 'menu_utama')],
+            [
+                Markup.button.callback('🏠 Start', 'nav_start'),
+                Markup.button.callback('💰 Saldo', 'nav_saldo'),
+                Markup.button.callback('📦 List Produk', 'nav_products')
+            ]
         ]);
 
         if (isEdit && ctx.updateType === 'callback_query') {
@@ -132,18 +156,29 @@ async function showSaldoMenu(ctx, isEdit = false) {
 async function processTopupNominal(ctx, nominal) {
     try {
         const qrisFileId = await getSetting('qris_file_id');
-        let text = `Anda akan top up sebesar Rp ${formatRupiah(nominal)}.\n\nSilakan transfer ke QRIS berikut.`;
+        let text = `📍 /start > Saldo > Top Up\n\nAnda akan top up sebesar Rp ${formatRupiah(nominal)}.\n\nSilakan transfer ke QRIS berikut.`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📤 Upload Bukti Transfer', `topup_upload_proof:${nominal}`)],
-            [Markup.button.callback('⬅️ Back', 'menu_saldo')]
+            [Markup.button.callback('⬅️ Back', 'menu_saldo')],
+            [
+                Markup.button.callback('🏠 Start', 'nav_start'),
+                Markup.button.callback('💰 Saldo', 'nav_saldo'),
+                Markup.button.callback('📦 List Produk', 'nav_products')
+            ]
         ]);
 
+        const isCallback = ctx.updateType === 'callback_query';
+
         if (qrisFileId) {
-            await ctx.deleteMessage().catch(() => {});
+            if (isCallback) await ctx.deleteMessage().catch(() => {});
             await ctx.replyWithPhoto(qrisFileId, { caption: text, reply_markup: keyboard.reply_markup });
         } else {
-            await ctx.editMessageText(text + '\n\n(QRIS belum diatur oleh admin)', keyboard).catch(()=>{});
+            if (isCallback) {
+                await ctx.editMessageText(text + '\n\n(QRIS belum diatur oleh admin)', keyboard).catch(()=>{});
+            } else {
+                await ctx.reply(text + '\n\n(QRIS belum diatur oleh admin)', keyboard);
+            }
         }
     } catch (err) {
         console.error(err);

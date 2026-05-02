@@ -17,6 +17,11 @@ const isAdmin = async (ctx) => {
 };
 
 const backBtnAdmin = [Markup.button.callback('⬅️ Kembali Admin Menu', 'admin_menu')];
+const adminFastNav = [
+    Markup.button.callback('🛠 Admin Menu', 'nav_adminmenu'),
+    Markup.button.callback('🏠 Start', 'nav_start'),
+    Markup.button.callback('⬅️ Back', 'nav_back')
+];
 
 module.exports = (bot) => {
     bot.command('adminmenu', async (ctx) => {
@@ -41,14 +46,14 @@ module.exports = (bot) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         try {
             const stats = await getDashboardStats();
-            let text = `📊 DASHBOARD ADMIN\n\n`;
+            let text = `📍 /adminmenu > Dashboard\n\n📊 DASHBOARD ADMIN\n\n`;
             text += `- Total User: ${stats.totalUsers}\n`;
             text += `- Total Produk: ${stats.totalProducts}\n`;
             text += `- Total Varian: ${stats.totalVariants}\n`;
             text += `- Total Trx Sukses: ${stats.totalSuccessTx}\n`;
             text += `- Total Pendapatan: Rp ${formatRupiah(stats.totalIncome)}\n`;
             text += `- Topup Pending: ${stats.totalPendingTopups}\n`;
-            await ctx.editMessageText(text, Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+            await ctx.editMessageText(text, Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
             ctx.answerCbQuery().catch(()=>{});
         } catch (err) {
             console.error(err);
@@ -60,20 +65,20 @@ module.exports = (bot) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {};
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'add_prod_name' };
-        await ctx.editMessageText('Masukkan nama produk baru:', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('Masukkan nama produk baru:', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
     // 2. HAPUS PRODUK
     bot.action('admin_del_product', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
-        await showProductSelection(ctx, 'admin_delete_product_select', 1, 'Pilih produk yang ingin dihapus:');
+        await showProductSelection(ctx, 'admin_delete_product_select', 1, '📍 /adminmenu > Hapus Produk\n\nPilih produk yang ingin dihapus:');
         ctx.answerCbQuery().catch(()=>{});
     });
 
     bot.action(/admin_delete_product_select_page:(\d+)/, async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
-        await showProductSelection(ctx, 'admin_delete_product_select', parseInt(ctx.match[1]), 'Pilih produk yang ingin dihapus:');
+        await showProductSelection(ctx, 'admin_delete_product_select', parseInt(ctx.match[1]), '📍 /adminmenu > Hapus Produk\n\nPilih produk yang ingin dihapus:');
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -115,19 +120,19 @@ module.exports = (bot) => {
 
     bot.action('admin_delete_product_cancel', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
-        await showProductSelection(ctx, 'admin_delete_product_select', 1, 'Pilih produk yang ingin dihapus:');
+        await showProductSelection(ctx, 'admin_delete_product_select', 1, '📍 /adminmenu > Hapus Produk\n\nPilih produk yang ingin dihapus:');
         ctx.answerCbQuery().catch(()=>{});
     });
 
     // 3. KELOLA PRODUK
     bot.action('admin_manage_product', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
-        await showProductSelection(ctx, 'admin_manage_product', 1, 'Pilih produk yang ingin dikelola:');
+        await showProductSelection(ctx, 'admin_manage_product', 1, '📍 /adminmenu > Kelola Produk\n\nPilih produk yang ingin dikelola:');
         ctx.answerCbQuery().catch(()=>{});
     });
     bot.action(/admin_manage_product_page:(\d+)/, async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
-        await showProductSelection(ctx, 'admin_manage_product', parseInt(ctx.match[1]), 'Pilih produk yang ingin dikelola:');
+        await showProductSelection(ctx, 'admin_manage_product', parseInt(ctx.match[1]), '📍 /adminmenu > Kelola Produk\n\nPilih produk yang ingin dikelola:');
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -320,17 +325,17 @@ module.exports = (bot) => {
         const { getPendingTopups } = require('../services/topupService');
         const pending = await getPendingTopups();
         if (pending.length === 0) {
-            await ctx.editMessageText('Tidak ada top up pending.', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+            await ctx.editMessageText('📍 /adminmenu > Konfirmasi Pembayaran\n\nTidak ada top up pending.', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
             return ctx.answerCbQuery().catch(()=>{});
         }
         const topup = pending[0];
-        let text = `TOP UP PENDING\n\nUser: ${topup.full_name}\nUsername: @${topup.username || '-'}\nNominal: Rp ${formatRupiah(topup.amount)}\nWaktu: ${topup.created_at}\n\nSisa pending: ${pending.length - 1}`;
+        let text = `📍 /adminmenu > Konfirmasi Pembayaran\n\nTOP UP PENDING\n\nUser: ${topup.full_name}\nUsername: @${topup.username || '-'}\nNominal: Rp ${formatRupiah(topup.amount)}\nWaktu: ${topup.created_at}\n\nSisa pending: ${pending.length - 1}`;
         const keyboard = Markup.inlineKeyboard([
             [
                 Markup.button.callback('✅ ACC Top Up', `admin_topup_acc:${topup.id}`),
                 Markup.button.callback('❌ Tolak Top Up', `admin_topup_reject:${topup.id}`)
             ],
-            backBtnAdmin
+            backBtnAdmin, adminFastNav
         ]);
         await ctx.deleteMessage().catch(()=>{});
         if(topup.proof_file_id) await ctx.replyWithPhoto(topup.proof_file_id, { caption: text, reply_markup: keyboard.reply_markup }).catch(()=>{});
@@ -415,14 +420,14 @@ module.exports = (bot) => {
         if (page > 1) nav.push(Markup.button.callback('⬅️ Prev', `admin_data_user_${page - 1}`));
         if (page < res.totalPages) nav.push(Markup.button.callback('Next ➡️', `admin_data_user_${page + 1}`));
         
-        await ctx.editMessageText(text, Markup.inlineKeyboard([nav, [Markup.button.callback('🔍 Cari User', 'admin_search_user')], backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText(`📍 /adminmenu > Data User\n\n${text}`, Markup.inlineKeyboard([nav, [Markup.button.callback('🔍 Cari User', 'admin_search_user')], backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
     bot.action('admin_search_user', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'search_user' };
-        await ctx.editMessageText('Masukkan username atau Telegram ID user:', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Cari User\n\nMasukkan username atau Telegram ID user:', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -449,7 +454,7 @@ module.exports = (bot) => {
         if (page > 1) nav.push(Markup.button.callback('⬅️ Prev', `admin_all_transactions_${filter}_${page - 1}`));
         if (page < res.totalPages) nav.push(Markup.button.callback('Next ➡️', `admin_all_transactions_${filter}_${page + 1}`));
 
-        await ctx.editMessageText(text, Markup.inlineKeyboard([filters, nav, backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText(`📍 /adminmenu > Riwayat Transaksi\n\n${text}`, Markup.inlineKeyboard([filters, nav, backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -457,14 +462,14 @@ module.exports = (bot) => {
     bot.action('admin_add_saldo', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'saldo_search_user', type: 'add' };
-        await ctx.editMessageText('Masukkan Username atau Telegram ID user untuk ditambah saldonya:', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Tambah Saldo\n\nMasukkan Username atau Telegram ID user untuk ditambah saldonya:', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
     bot.action('admin_reduce_saldo', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'saldo_search_user', type: 'reduce' };
-        await ctx.editMessageText('Masukkan Username atau Telegram ID user untuk dikurangi saldonya:', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Kurangi Saldo\n\nMasukkan Username atau Telegram ID user untuk dikurangi saldonya:', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -472,13 +477,13 @@ module.exports = (bot) => {
     bot.action('admin_upload_qris', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'admin_upload_qris' };
-        await ctx.editMessageText('Silakan kirim foto/gambar QRIS baru.', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Upload QRIS\n\nSilakan kirim foto/gambar QRIS baru.', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
     bot.action('admin_update_qris', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'admin_upload_qris' };
-        await ctx.editMessageText('Silakan kirim foto/gambar QRIS baru untuk mengupdate.', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Update QRIS\n\nSilakan kirim foto/gambar QRIS baru untuk mengupdate.', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -486,7 +491,7 @@ module.exports = (bot) => {
     bot.action('admin_broadcast', async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'broadcast_msg' };
-        await ctx.editMessageText('Kirim teks pesan broadcast:', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Broadcast\n\nKirim teks pesan broadcast:', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -527,7 +532,7 @@ module.exports = (bot) => {
         text += `\n🏆 Top Buyer:\n`;
         stats.topBuyers.forEach(b => text += `  - ${b.full_name || b.username} (Rp ${formatRupiah(b.total_spent)})\n`);
 
-        await ctx.editMessageText(text, Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText(`📍 /adminmenu > Statistik\n\n${text}`, Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -539,6 +544,7 @@ module.exports = (bot) => {
             [Markup.button.callback('Minimal Topup', 'admin_set_min_topup'), Markup.button.callback('QRIS Status', 'admin_set_qris')],
             [Markup.button.callback('Maintenance Status', 'admin_set_mt'), Markup.button.callback('Contact Admin', 'admin_set_contact')],
             [Markup.button.callback('Upload Start Banner', 'admin_upload_banner'), Markup.button.callback('Update Start Banner', 'admin_update_banner')],
+            [Markup.button.callback('🧹 Clear All Data', 'admin_clear_all_data')],
             backBtnAdmin
         ]);
         await ctx.editMessageText('⚙️ Setting Bot\nPilih pengaturan yang ingin diubah:', kb).catch(()=>{});
@@ -549,7 +555,7 @@ module.exports = (bot) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         const type = ctx.match[1];
         ctx.session = ctx.session || {}; ctx.session.admin = { step: `setting_${type}` };
-        await ctx.editMessageText(`Masukkan nilai baru untuk pengaturan ini:`, Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText(`📍 /adminmenu > Setting > ${type}\n\nMasukkan nilai baru untuk pengaturan ini:`, Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -564,7 +570,40 @@ module.exports = (bot) => {
     bot.action(/admin_(upload|update)_banner/, async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'admin_upload_banner' };
-        await ctx.editMessageText('Silakan kirim foto/gambar banner untuk /start.', Markup.inlineKeyboard([backBtnAdmin])).catch(()=>{});
+        await ctx.editMessageText('📍 /adminmenu > Upload Banner\n\nSilakan kirim foto/gambar banner untuk /start.', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
+        ctx.answerCbQuery().catch(()=>{});
+    });
+
+    bot.action('admin_clear_all_data', async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const user = await getOrCreateUser(ctx);
+        if (user.telegram_id.toString() !== env.OWNER_ID.toString()) {
+            return ctx.answerCbQuery('❌ Fitur ini hanya untuk owner.', { show_alert: true });
+        }
+
+        let text = `⚠️ PERINGATAN!\nFitur ini akan menghapus SEMUA data:\n`;
+        text += `- Produk\n- Varian\n- Stok\n- Transaksi\n- Top up\n- Riwayat saldo\n- User saldo akan di-reset ke 0\n\n`;
+        text += `Apakah Anda yakin?`;
+
+        const kb = Markup.inlineKeyboard([
+            [Markup.button.callback('✅ Ya, Clear All', 'admin_confirm_clear_all')],
+            [Markup.button.callback('❌ Batal', 'admin_settings')]
+        ]);
+
+        await ctx.editMessageText(text, kb).catch(()=>{});
+        ctx.answerCbQuery().catch(()=>{});
+    });
+
+    bot.action('admin_confirm_clear_all', async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const user = await getOrCreateUser(ctx);
+        if (user.telegram_id.toString() !== env.OWNER_ID.toString()) {
+            return ctx.answerCbQuery('❌ Fitur ini hanya untuk owner.', { show_alert: true });
+        }
+
+        ctx.session = ctx.session || {};
+        ctx.session.admin = { step: 'clear_all_input' };
+        await ctx.editMessageText('📍 /adminmenu > Clear All\n\nKetik konfirmasi manual:\n\nCLEAR ALL DITSSTORE', Markup.inlineKeyboard([backBtnAdmin, adminFastNav])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -686,7 +725,7 @@ module.exports = (bot) => {
             ctx.session.admin.step = 'broadcast_confirm';
             await ctx.reply(`📢 BROADCAST MESSAGE\n\n${text}`, Markup.inlineKeyboard([
                 [Markup.button.callback('Kirim Broadcast', 'admin_confirm_broadcast')],
-                backBtnAdmin
+                backBtnAdmin, adminFastNav
             ]));
         }
         else if (step === 'setting_toko') {
@@ -708,6 +747,29 @@ module.exports = (bot) => {
             await setSetting('contact', text);
             ctx.session = ctx.session || {}; ctx.session.admin = null;
             await ctx.reply('✅ Contact Admin berhasil diperbarui.', adminMenuKeyboard());
+        }
+        else if (step === 'clear_all_input') {
+            if (text === 'CLEAR ALL DITSSTORE') {
+                const db = require('../database/db');
+                const dbInstance = await db.getDB();
+                
+                // Clear tables
+                await dbInstance.exec(`
+                    DELETE FROM stock_items;
+                    DELETE FROM variants;
+                    DELETE FROM products;
+                    DELETE FROM transactions;
+                    DELETE FROM topups;
+                    DELETE FROM saldo_logs;
+                    UPDATE users SET saldo = 0, total_spent = 0;
+                `);
+                
+                ctx.session = ctx.session || {}; ctx.session.admin = null;
+                await ctx.reply('✅ Semua data berhasil di-reset dari awal.', adminMenuKeyboard());
+            } else {
+                ctx.session = ctx.session || {}; ctx.session.admin = null;
+                await ctx.reply('❌ Konfirmasi salah. Clear all dibatalkan.', adminMenuKeyboard());
+            }
         }
         else {
             next();
@@ -840,9 +902,9 @@ async function sendKelolaProdukMenuReply(ctx, productId) {
 async function showSoldStocks(ctx, page) {
     const res = await getSoldStocksAdmin(page, 5);
     if (res.items.length === 0) {
-        return ctx.editMessageText('Belum ada stok yang terjual.', Markup.inlineKeyboard([backBtnAdmin]));
+        return ctx.editMessageText('📍 /adminmenu > Lihat Stok Terjual\n\nBelum ada stok yang terjual.', Markup.inlineKeyboard([backBtnAdmin, adminFastNav]));
     }
-    let text = `STOK TERJUAL\n\n`;
+    let text = `📍 /adminmenu > Lihat Stok Terjual\n\nSTOK TERJUAL\n\n`;
     const kb = [];
     res.items.forEach(s => {
         text += `╭ - - - - - - - - - - - - - - - - - ╮\n`;
@@ -859,5 +921,6 @@ async function showSoldStocks(ctx, page) {
     if (page < res.totalPages) nav.push(Markup.button.callback('Next ➡️', `admin_vss_page_${page+1}`));
     if (nav.length > 0) kb.push(nav);
     kb.push(backBtnAdmin);
+    kb.push(adminFastNav);
     await ctx.editMessageText(text, Markup.inlineKeyboard(kb)).catch(()=>{});
 }

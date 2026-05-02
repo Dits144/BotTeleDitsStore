@@ -56,7 +56,8 @@ async function showProductList(ctx, page, isReply = false) {
         const { getProducts } = require('../services/productService');
         const { products, totalPages, currentPage } = await getProducts(page, 10);
         
-        let text = `╭ - - - - - - - - - - - - - - - - - - - ╮\n┊ LIST PRODUK\n┊- - - - - - - - - - - - - - - - - - - - -\n`;
+        let text = `📍 /start > List Produk\n\n╭ - - - - - - - - - - - - - - - - - - - ╮\n┊ LIST PRODUK\n┊- - - - - - - - - - - - - - - - - - - - -\n`;
+
         
         const keyboard = [];
         let row = [];
@@ -82,7 +83,13 @@ async function showProductList(ctx, page, isReply = false) {
         if (currentPage < totalPages) navRow.push(Markup.button.callback('Next ➡️', `page_prod_${currentPage + 1}`));
         
         keyboard.push(navRow);
-        keyboard.push([Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]);
+        
+        const fastNav = [
+            Markup.button.callback('🏠 Start', 'nav_start'),
+            Markup.button.callback('💰 Saldo', 'nav_saldo'),
+            Markup.button.callback('📦 List Produk', 'nav_products')
+        ];
+        keyboard.push(fastNav);
 
         if (ctx.updateType === 'message' || isReply) {
             await ctx.reply(text, Markup.inlineKeyboard(keyboard));
@@ -103,7 +110,7 @@ async function showProductDetail(ctx, productId) {
 
         const variants = await getVariantsByProductId(productId);
         
-        let text = `╭ - - - - - - - - - - - - - - - - - - - - - ╮\n`;
+        let text = `📍 /start > List Produk > ${product.name}\n\n╭ - - - - - - - - - - - - - - - - - - - - - ╮\n`;
         text += `┊・Produk: ${product.name}\n`;
         text += `┊・Stok Terjual: ${product.sold_count}\n`;
         text += `┊・Desk: ${product.description || '-'}\n`;
@@ -128,6 +135,13 @@ async function showProductDetail(ctx, productId) {
             Markup.button.callback('⬅️ Back', 'menu_list_produk'),
             Markup.button.callback('🔄 Refresh', `prod_${productId}`)
         ]);
+
+        const fastNav = [
+            Markup.button.callback('🏠 Start', 'nav_start'),
+            Markup.button.callback('💰 Saldo', 'nav_saldo'),
+            Markup.button.callback('📦 List Produk', 'nav_products')
+        ];
+        keyboard.push(fastNav);
 
         await ctx.editMessageText(text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
     } catch (error) {
