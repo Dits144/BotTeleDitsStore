@@ -28,12 +28,7 @@ const adminMenuKeyboard = () => {
             Markup.button.callback('📢 Broadcast Pesan', 'admin_broadcast'),
             Markup.button.callback('📈 Statistik Penjualan', 'admin_statistics')
         ],
-        [Markup.button.callback('⚙️ Setting Bot', 'admin_settings')],
-        [
-            Markup.button.callback('🛠 Admin Menu', 'nav_adminmenu'),
-            Markup.button.callback('🏠 Start', 'nav_start'),
-            Markup.button.callback('⬅️ Back', 'nav_back')
-        ]
+        [Markup.button.callback('⚙️ Setting Bot', 'admin_settings')]
     ]);
 };
 

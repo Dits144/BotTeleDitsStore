@@ -8,7 +8,6 @@ const productHandler = require('./handlers/product');
 const orderHandler = require('./handlers/order');
 const saldoHandler = require('./handlers/saldo');
 const stokHandler = require('./handlers/stok');
-const navHandler = require('./handlers/nav');
 const adminHandler = require('./handlers/admin');
 
 if (!env.BOT_TOKEN || env.BOT_TOKEN === 'isi_token_bot_disini') {
@@ -32,7 +31,6 @@ productHandler(bot);
 orderHandler(bot);
 saldoHandler(bot);
 stokHandler(bot);
-navHandler(bot);
 
 // Admin handler needs to be last to catch text and photos properly without blocking others
 adminHandler(bot);

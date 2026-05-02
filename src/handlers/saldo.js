@@ -129,18 +129,13 @@ module.exports = (bot) => {
 async function showSaldoMenu(ctx, isEdit = false) {
     try {
         const user = await getOrCreateUser(ctx);
-        const text = `📍 /start > Saldo\n\nDetail Saldo Anda di DitsStore\n\nSaldo Anda saat ini: Rp ${formatRupiah(user.saldo)}\n\nMau isi saldo? Silakan pilih nominal dibawah ini:`;
+        const text = `Detail Saldo Anda di DitsStore\n\nSaldo Anda saat ini: Rp ${formatRupiah(user.saldo)}\n\nMau isi saldo? Silakan pilih nominal dibawah ini:`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('Rp 10.000', 'topup_10000'), Markup.button.callback('Rp 25.000', 'topup_25000')],
             [Markup.button.callback('Rp 50.000', 'topup_50000'), Markup.button.callback('Rp 100.000', 'topup_100000')],
             [Markup.button.callback('Isi Nominal', 'topup_manual')],
-            [Markup.button.callback('⬅️ Back', 'menu_utama')],
-            [
-                Markup.button.callback('🏠 Start', 'nav_start'),
-                Markup.button.callback('💰 Saldo', 'nav_saldo'),
-                Markup.button.callback('📦 List Produk', 'nav_products')
-            ]
+            [Markup.button.callback('⬅️ Back', 'menu_utama')]
         ]);
 
         if (isEdit && ctx.updateType === 'callback_query') {
@@ -156,16 +151,11 @@ async function showSaldoMenu(ctx, isEdit = false) {
 async function processTopupNominal(ctx, nominal) {
     try {
         const qrisFileId = await getSetting('qris_file_id');
-        let text = `📍 /start > Saldo > Top Up\n\nAnda akan top up sebesar Rp ${formatRupiah(nominal)}.\n\nSilakan transfer ke QRIS berikut.`;
+        let text = `Anda akan top up sebesar Rp ${formatRupiah(nominal)}.\n\nSilakan transfer ke QRIS berikut.`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📤 Upload Bukti Transfer', `topup_upload_proof:${nominal}`)],
-            [Markup.button.callback('⬅️ Back', 'menu_saldo')],
-            [
-                Markup.button.callback('🏠 Start', 'nav_start'),
-                Markup.button.callback('💰 Saldo', 'nav_saldo'),
-                Markup.button.callback('📦 List Produk', 'nav_products')
-            ]
+            [Markup.button.callback('⬅️ Back', 'menu_saldo')]
         ]);
 
         const isCallback = ctx.updateType === 'callback_query';
