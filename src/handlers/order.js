@@ -70,10 +70,194 @@ module.exports = (bot) => {
         for (const item of res.items) {
             await ctx.reply(item);
         }
+
+        const { sendTestimoni } = require('../utils/testimoni');
+        sendTestimoni(bot, { total_price: res.total_price, payment_method: 'saldo' }, product, variant, user);
     });
 
-    bot.action('pay_qris', (ctx) => {
-        ctx.answerCbQuery('Bayar dengan QRIS Belum Tersedia.', { show_alert: true });
+    bot.action('pay_qris', async (ctx) => {
+        if (!ctx.session || !ctx.session.order) return ctx.answerCbQuery('Sesi habis.', { show_alert: true });
+        
+        const { variantId, qty } = ctx.session.order;
+        const user = await getOrCreateUser(ctx);
+        const variant = await getVariantById(variantId);
+        if(!variant) return ctx.answerCbQuery('Varian tidak ditemukan.');
+
+        const product = await getProductById(variant.product_id);
+        const total = variant.price * qty;
+
+        // Check stock first
+        const db = require('../database/db');
+        const dbInstance = await db.getDB();
+        const availableStocks = await dbInstance.all('SELECT id FROM stock_items WHERE variant_id = ? AND status = "available" LIMIT ?', [variantId, qty]);
+        if (availableStocks.length < qty) {
+            return ctx.answerCbQuery('❌ Stok tidak mencukupi.', { show_alert: true });
+        }
+
+        const { getSetting } = require('../services/adminService');
+        const qrisMode = await getSetting('qris_mode') || 'manual';
+
+        if (qrisMode === 'dynamic') {
+            const { createPendingOrder } = require('../services/orderService');
+            const { createDynamicQRIS } = require('../services/midtransService');
+            
+            // Create pending transaction first
+            const tx = await createPendingOrder(user.id, variant.product_id, variantId, qty, 'qris_dynamic');
+            
+            try {
+                // Generate QRIS using Midtrans
+                const midtransResponse = await createDynamicQRIS(tx.invoice_id, tx.total_price);
+                const qrUrl = midtransResponse.actions.find(a => a.name === 'generate-qr-code')?.url;
+                
+                // Update TX with QR URL
+                await dbInstance.run('UPDATE transactions SET payment_qr_url = ? WHERE invoice_id = ?', [qrUrl, tx.invoice_id]);
+
+                let text = `💳 Pembayaran QRIS Dinamis\n\n`;
+                text += `ID Transaksi: ${tx.invoice_id}\n`;
+                text += `Produk: ${product.name}\n`;
+                text += `Variant: ${variant.name}\n`;
+                text += `Jumlah: ${qty}\n`;
+                text += `Total: Rp ${formatRupiah(total)}\n\n`;
+                text += `Silakan scan QRIS berikut.\nQRIS berlaku selama 5 menit.`;
+
+                const kb = Markup.inlineKeyboard([
+                    [Markup.button.callback('🔄 Cek Status Pembayaran', `cek_status_qris:${tx.invoice_id}`)],
+                    [Markup.button.callback('❌ Batalkan', `cancel_order:${tx.invoice_id}`)]
+                ]);
+
+                ctx.session.order = null;
+                
+                if (qrUrl) {
+                    await ctx.editMessageText('Mohon tunggu, generate QRIS...').catch(()=>{});
+                    await ctx.deleteMessage().catch(()=>{});
+                    await ctx.replyWithPhoto(qrUrl, { caption: text, reply_markup: kb.reply_markup });
+                } else {
+                    await ctx.editMessageText('❌ Gagal mendapatkan QRIS dari payment gateway.');
+                }
+            } catch (error) {
+                console.error(error);
+                await ctx.editMessageText('❌ Terjadi kesalahan saat membuat QRIS Dinamis.');
+            }
+        } else {
+            // Manual QRIS
+            const qrisFileId = await getSetting('qris_file_id');
+            if (!qrisFileId) return ctx.answerCbQuery('❌ QRIS belum diatur oleh admin.', { show_alert: true });
+
+            ctx.session.order.total = total;
+            ctx.session.order.qris_manual = true;
+            
+            let text = `Pembayaran QRIS Manual\n\nTotal: Rp ${formatRupiah(total)}\nSilakan transfer ke QRIS berikut dan kirim bukti transfer.`;
+            const kb = Markup.inlineKeyboard([[Markup.button.callback('❌ Batalkan', 'cancel_order_session')]]);
+
+            ctx.session.order = null;
+            ctx.session.manual_qris_payment = {
+                variantId, qty, total, productId: variant.product_id
+            };
+            
+            await ctx.deleteMessage().catch(()=>{});
+            await ctx.replyWithPhoto(qrisFileId, { caption: text, reply_markup: kb.reply_markup });
+        }
+    });
+
+    bot.action('cancel_order_session', async (ctx) => {
+        ctx.session.manual_qris_payment = null;
+        ctx.session.order = null;
+        await ctx.editMessageCaption('Pesanan dibatalkan.').catch(()=>{});
+    });
+
+    bot.action(/^cek_status_qris:(.+)$/, async (ctx) => {
+        const invoiceId = ctx.match[1];
+        const { getTransactionByInvoice } = require('../services/orderService');
+        const tx = await getTransactionByInvoice(invoiceId);
+        
+        if (!tx) return ctx.answerCbQuery('Transaksi tidak ditemukan.', {show_alert: true});
+        
+        if (tx.status === 'pending') {
+            if (new Date(tx.expired_at) < new Date()) {
+                const db = await require('../database/db').getDB();
+                await db.run('UPDATE transactions SET status = "expired" WHERE id = ?', [tx.id]);
+                return ctx.answerCbQuery('❌ QRIS sudah kadaluarsa. Silakan buat pesanan baru.', {show_alert: true});
+            }
+            return ctx.answerCbQuery('⏳ Pembayaran belum diterima.', {show_alert: true});
+        } else if (tx.status === 'success') {
+            return ctx.answerCbQuery('✅ Pembayaran sudah berhasil. Akun telah dikirim.', {show_alert: true});
+        } else if (tx.status === 'expired') {
+            return ctx.answerCbQuery('❌ QRIS sudah kadaluarsa. Silakan buat pesanan baru.', {show_alert: true});
+        } else {
+            return ctx.answerCbQuery('❌ Pembayaran gagal atau dibatalkan.', {show_alert: true});
+        }
+    });
+
+    bot.action(/^cancel_order:(.+)$/, async (ctx) => {
+        const invoiceId = ctx.match[1];
+        const db = await require('../database/db').getDB();
+        await db.run('UPDATE transactions SET status = "cancelled" WHERE invoice_id = ? AND status = "pending"', [invoiceId]);
+        await ctx.editMessageCaption('❌ Pesanan dibatalkan.').catch(()=>{});
+    });
+
+    bot.on('photo', async (ctx, next) => {
+        if (ctx.session && ctx.session.manual_qris_payment) {
+            const orderInfo = ctx.session.manual_qris_payment;
+            const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+            const caption = ctx.message.caption || '-';
+            const user = await getOrCreateUser(ctx);
+            const { createPendingOrder } = require('../services/orderService');
+            
+            try {
+                const tx = await createPendingOrder(user.id, orderInfo.productId, orderInfo.variantId, orderInfo.qty, 'qris_manual');
+                const db = await require('../database/db').getDB();
+                await db.run('UPDATE transactions SET proof_file_id = ?, proof_caption = ? WHERE invoice_id = ?', [fileId, caption, tx.invoice_id]);
+
+                ctx.session.manual_qris_payment = null;
+
+                await ctx.reply('✅ Bukti transfer berhasil dikirim.\nSilakan tunggu admin mengkonfirmasi pembayaran Anda.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]]));
+
+                const { formatDateTimeWIB } = require('../utils/time');
+                const { getAllAdmins } = require('../services/userService');
+                const product = await getProductById(orderInfo.productId);
+                const variant = await getVariantById(orderInfo.variantId);
+                const env = require('../config/env');
+                
+                let text = `🔔 PEMBAYARAN QRIS MANUAL BARU\n\n`;
+                text += `👤 User: ${user.full_name}\n`;
+                text += `🔗 Username: @${user.username || '-'}\n`;
+                text += `🆔 Telegram ID: ${user.telegram_id}\n\n`;
+                text += `🧾 ID Transaksi: ${tx.invoice_id}\n`;
+                text += `📦 Produk: ${product.name}\n`;
+                text += `🎛 Variant: ${variant.name}\n`;
+                text += `🔢 Jumlah: ${orderInfo.qty}\n`;
+                text += `💰 Total: Rp ${formatRupiah(orderInfo.total)}\n\n`;
+                text += `📝 Caption Buyer:\n${caption}\n\n`;
+                text += `Status: Menunggu konfirmasi admin.`;
+
+                const keyboard = Markup.inlineKeyboard([
+                    [
+                        Markup.button.callback('✅ ACC Pembayaran', `admin_qris_acc:${tx.invoice_id}`),
+                        Markup.button.callback('❌ Tolak Pembayaran', `admin_qris_reject:${tx.invoice_id}`)
+                    ]
+                ]);
+
+                const admins = await getAllAdmins();
+                let adminIds = admins.map(a => a.telegram_id);
+                if (env.OWNER_ID && !adminIds.includes(env.OWNER_ID)) {
+                    adminIds.push(env.OWNER_ID);
+                }
+
+                if (adminIds.length > 0) {
+                    for (const adminId of adminIds) {
+                        await bot.telegram.sendPhoto(adminId, fileId, {
+                            caption: text,
+                            reply_markup: keyboard.reply_markup
+                        }).catch(()=>{});
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                ctx.reply('❌ Gagal memproses pesanan.');
+            }
+        } else {
+            return next();
+        }
     });
 
     bot.action('menu_riwayat', async (ctx) => {

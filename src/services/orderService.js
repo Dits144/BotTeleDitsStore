@@ -58,6 +58,63 @@ async function createOrder(userId, productId, variantId, qty, paymentMethod) {
     };
 }
 
+async function createPendingOrder(userId, productId, variantId, qty, paymentMethod, qrisUrl = null, qrisString = null) {
+    const db = await getDB();
+    const variant = await db.get('SELECT * FROM variants WHERE id = ?', [variantId]);
+    const total_price = variant.price * qty;
+    const invoice_id = generateInvoiceId();
+    
+    const env = require('../config/env');
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + env.QRIS_EXPIRE_MINUTES);
+    const expired_at = d.toISOString().replace('T', ' ').substring(0, 19);
+
+    const result = await db.run(
+        'INSERT INTO transactions (invoice_id, user_id, product_id, variant_id, qty, total_price, payment_method, status, payment_qr_url, payment_qr_string, expired_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [invoice_id, userId, productId, variantId, qty, total_price, paymentMethod, 'pending', qrisUrl, qrisString, expired_at]
+    );
+    
+    return {
+        success: true,
+        transactionId: result.lastID,
+        invoice_id,
+        total_price,
+        expired_at
+    };
+}
+
+async function updateOrderToSuccess(invoiceId) {
+    const db = await getDB();
+    const tx = await db.get('SELECT * FROM transactions WHERE invoice_id = ?', [invoiceId]);
+    if (!tx || tx.status !== 'pending') return { success: false, message: 'Transaksi tidak valid.' };
+
+    const availableStocks = await db.all('SELECT * FROM stock_items WHERE variant_id = ? AND status = "available" LIMIT ?', [tx.variant_id, tx.qty]);
+    
+    if (availableStocks.length < tx.qty) {
+        await db.run('UPDATE transactions SET status = "paid_but_out_of_stock", paid_at = CURRENT_TIMESTAMP WHERE id = ?', [tx.id]);
+        return { success: false, outOfStock: true, transaction: tx };
+    }
+
+    await db.run('UPDATE transactions SET status = "success", paid_at = CURRENT_TIMESTAMP WHERE id = ?', [tx.id]);
+
+    for (const stock of availableStocks) {
+        await db.run('UPDATE stock_items SET status = "sold", sold_to_user_id = ?, sold_transaction_id = ?, sold_at = CURRENT_TIMESTAMP WHERE id = ?', [tx.user_id, tx.id, stock.id]);
+    }
+
+    await db.run('UPDATE products SET sold_count = sold_count + ? WHERE id = ?', [tx.qty, tx.product_id]);
+
+    return {
+        success: true,
+        transaction: tx,
+        items: availableStocks.map(s => s.content)
+    };
+}
+
+async function getTransactionByInvoice(invoiceId) {
+    const db = await getDB();
+    return await db.get('SELECT * FROM transactions WHERE invoice_id = ?', [invoiceId]);
+}
+
 async function getUserTransactions(userId) {
     const db = await getDB();
     return await db.all(`
@@ -101,4 +158,4 @@ async function getAllTransactions(page = 1, limit = 10, filter = 'all') {
     };
 }
 
-module.exports = { createOrder, getUserTransactions, getAllTransactions };
+module.exports = { createOrder, getUserTransactions, getAllTransactions, createPendingOrder, updateOrderToSuccess, getTransactionByInvoice };

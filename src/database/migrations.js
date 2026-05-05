@@ -61,6 +61,15 @@ async function runMigrations() {
             total_price INTEGER,
             payment_method TEXT,
             status TEXT DEFAULT 'pending',
+            payment_reference_id TEXT,
+            payment_qr_url TEXT,
+            payment_qr_string TEXT,
+            expired_at DATETIME,
+            paid_at DATETIME,
+            rejected_at DATETIME,
+            approved_by INTEGER,
+            proof_file_id TEXT,
+            proof_caption TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
@@ -94,6 +103,25 @@ async function runMigrations() {
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
     `);
+
+    // Helper to safely add columns if they don't exist
+    const addColumnIfNotExists = async (table, column, type) => {
+        try {
+            await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        } catch (e) {
+            // Column might already exist
+        }
+    };
+
+    await addColumnIfNotExists('transactions', 'payment_reference_id', 'TEXT');
+    await addColumnIfNotExists('transactions', 'payment_qr_url', 'TEXT');
+    await addColumnIfNotExists('transactions', 'payment_qr_string', 'TEXT');
+    await addColumnIfNotExists('transactions', 'expired_at', 'DATETIME');
+    await addColumnIfNotExists('transactions', 'paid_at', 'DATETIME');
+    await addColumnIfNotExists('transactions', 'rejected_at', 'DATETIME');
+    await addColumnIfNotExists('transactions', 'approved_by', 'INTEGER');
+    await addColumnIfNotExists('transactions', 'proof_file_id', 'TEXT');
+    await addColumnIfNotExists('transactions', 'proof_caption', 'TEXT');
 
     const countProd = await db.get('SELECT COUNT(*) as count FROM products');
     if (countProd.count === 0) {

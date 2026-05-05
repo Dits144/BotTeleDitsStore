@@ -534,7 +534,7 @@ module.exports = (bot) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         const kb = Markup.inlineKeyboard([
             [Markup.button.callback('Nama Toko', 'admin_set_toko'), Markup.button.callback('Pesan Welcome', 'admin_set_welcome')],
-            [Markup.button.callback('Minimal Topup', 'admin_set_min_topup'), Markup.button.callback('QRIS Status', 'admin_set_qris')],
+            [Markup.button.callback('Minimal Topup', 'admin_set_min_topup'), Markup.button.callback('QRIS Mode', 'admin_set_qris_mode')],
             [Markup.button.callback('Maintenance Status', 'admin_set_mt'), Markup.button.callback('Contact Admin', 'admin_set_contact')],
             [Markup.button.callback('Upload Start Banner', 'admin_upload_banner'), Markup.button.callback('Update Start Banner', 'admin_update_banner')],
             [Markup.button.callback('🧹 Clear All Data', 'admin_clear_all_data')],
@@ -552,12 +552,71 @@ module.exports = (bot) => {
         ctx.answerCbQuery().catch(()=>{});
     });
 
-    bot.action(/admin_set_(qris|mt)/, async (ctx) => {
+    bot.action(/admin_set_mt/, async (ctx) => {
         if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
-        const type = ctx.match[1];
-        const val = await getSetting(type) === '1' ? '0' : '1';
-        await setSetting(type, val);
+        const val = await getSetting('mt') === '1' ? '0' : '1';
+        await setSetting('mt', val);
         await ctx.answerCbQuery(`Status berhasil diubah menjadi: ${val === '1' ? 'ON' : 'OFF'}`, { show_alert: true });
+    });
+
+    bot.action('admin_set_qris_mode', async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const current = await getSetting('qris_mode') || 'manual';
+        const newVal = current === 'dynamic' ? 'manual' : 'dynamic';
+        await setSetting('qris_mode', newVal);
+        await ctx.answerCbQuery(`QRIS Mode diubah menjadi: ${newVal.toUpperCase()} ${newVal === 'dynamic' ? '(ON)' : '(OFF)'}`, { show_alert: true });
+    });
+
+    bot.action(/^admin_qris_acc:(.+)$/, async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const invoiceId = ctx.match[1];
+        const { updateOrderToSuccess } = require('../services/orderService');
+        
+        const res = await updateOrderToSuccess(invoiceId);
+        if (!res.success) {
+            return ctx.answerCbQuery(`❌ Gagal: ${res.message || (res.outOfStock ? 'Stok Habis' : 'Error')}`, { show_alert: true });
+        }
+        
+        await ctx.editMessageCaption(`✅ Pembayaran QRIS Manual untuk ${invoiceId} berhasil di-ACC.`).catch(()=>{});
+        
+        const tx = res.transaction;
+        let text = `✅ Pembayaran Berhasil di-ACC admin\n`;
+        text += `📅 Tanggal : ${require('../utils/time').formatDateTimeWIB()}\n\n`;
+        text += `Informasi Pembelian:\n`;
+        text += `ID Transaksi: ${tx.invoice_id}\n`;
+        text += `Jumlah Pesanan: ${tx.qty}\n`;
+        text += `Total Pembayaran: Rp ${formatRupiah(tx.total_price)}\n\n`;
+        text += `🔐 Account Details\n`;
+        
+        bot.telegram.sendMessage(tx.user_id, text).then(async () => {
+            for (const item of res.items) {
+                await bot.telegram.sendMessage(tx.user_id, item);
+            }
+            const { getProductById, getVariantById } = require('../services/productService');
+            const { getUserById } = require('../services/userService');
+            const product = await getProductById(tx.product_id);
+            const variant = await getVariantById(tx.variant_id);
+            const user = await getUserById(tx.user_id);
+            
+            const { sendTestimoni } = require('../utils/testimoni');
+            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_manual' }, product, variant, user);
+        }).catch(()=>{});
+    });
+
+    bot.action(/^admin_qris_reject:(.+)$/, async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const invoiceId = ctx.match[1];
+        const db = await require('../database/db').getDB();
+        
+        const tx = await db.get('SELECT * FROM transactions WHERE invoice_id = ?', [invoiceId]);
+        if (!tx || tx.status !== 'pending') return ctx.answerCbQuery('Transaksi sudah diproses.', {show_alert:true});
+        
+        await db.run('UPDATE transactions SET status = "rejected", rejected_at = CURRENT_TIMESTAMP WHERE id = ?', [tx.id]);
+        
+        await ctx.editMessageCaption(`❌ Pembayaran QRIS Manual untuk ${invoiceId} ditolak.`).catch(()=>{});
+        
+        const text = `❌ Pembayaran QRIS Anda ditolak admin.\nSilakan hubungi admin jika ada kesalahan.`;
+        bot.telegram.sendMessage(tx.user_id, text).catch(()=>{});
     });
 
     bot.action(/admin_(upload|update)_banner/, async (ctx) => {
