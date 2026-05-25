@@ -62,7 +62,7 @@ module.exports = (bot) => {
     });
 };
 
-async function showProductList(ctx, page, isReply = false, bannerId = null) {
+async function showProductList(ctx, page, isReply = false, bannerId = null, editMessageId = null) {
     try {
         const { getProducts } = require('../services/productService');
         const { products, totalPages, currentPage } = await getProducts(page, 10);
@@ -95,7 +95,14 @@ async function showProductList(ctx, page, isReply = false, bannerId = null) {
         keyboard.push(navRow);
         keyboard.push([Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]);
 
-        if (ctx.updateType === 'message' || isReply) {
+        if (editMessageId) {
+            const chatId = ctx.chat.id;
+            if (bannerId) {
+                await ctx.telegram.editMessageCaption(chatId, editMessageId, undefined, text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
+            } else {
+                await ctx.telegram.editMessageText(chatId, editMessageId, undefined, text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
+            }
+        } else if (ctx.updateType === 'message' || isReply) {
             if (bannerId) {
                 await ctx.replyWithPhoto(bannerId, {
                     caption: text,
