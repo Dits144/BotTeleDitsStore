@@ -728,14 +728,46 @@ module.exports = (bot) => {
             const v = await getVariantById(variantId);
             const p = await getProductById(v.product_id);
             
-            const emailMatch = text.match(/[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            let stock_label = emailMatch ? emailMatch[0] : text.split('\n')[0].substring(0, 30);
+            // Parser multi-stok massal (bulk upload)
+            const lines = text.split(/\r?\n/);
+            let accounts = [];
+            let currentAccount = [];
             
-            await addSingleStockItem(variantId, stock_label, text);
+            for (const line of lines) {
+                const trimmed = line.trim();
+                // Deteksi awal akun baru (diawali angka 1. Email atau email: atau "Email:")
+                if (trimmed.match(/^\d+\.\s+Email:/i) || trimmed.toLowerCase().startsWith('email:')) {
+                    if (currentAccount.length > 0) {
+                        accounts.push(currentAccount.join('\n'));
+                        currentAccount = [];
+                    }
+                }
+                currentAccount.push(line);
+            }
+            if (currentAccount.length > 0) {
+                accounts.push(currentAccount.join('\n'));
+            }
+
+            // Jika tidak terdeteksi pemisah massal, gunakan seluruh teks
+            if (accounts.length === 0) {
+                accounts = [text];
+            }
+
+            for (const accountText of accounts) {
+                const emailMatch = accountText.match(/[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                const stock_label = emailMatch ? emailMatch[0] : accountText.split('\n')[0].substring(0, 30);
+                await addSingleStockItem(variantId, stock_label, accountText);
+            }
             
             const availableStocks = await getAvailableStocksAdmin(variantId);
             ctx.session = ctx.session || {}; ctx.session.admin = null;
-            await ctx.reply(`✅ Stok berhasil ditambahkan.\nProduk: ${p.name}\nVariasi: ${v.name}\nLabel: ${stock_label}\nStok sekarang: ${availableStocks.length}`);
+            
+            if (accounts.length > 1) {
+                await ctx.reply(`✅ Berhasil menambahkan ${accounts.length} stok secara massal!\nProduk: ${p.name}\nVariasi: ${v.name}\nStok sekarang: ${availableStocks.length}`);
+            } else {
+                const singleLabel = accounts[0].match(/[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || accounts[0].split('\n')[0].substring(0, 30);
+                await ctx.reply(`✅ Stok berhasil ditambahkan.\nProduk: ${p.name}\nVariasi: ${v.name}\nLabel: ${singleLabel}\nStok sekarang: ${availableStocks.length}`);
+            }
             await sendKelolaProdukMenuReply(ctx, p.id);
         }
         else if (step === 'search_user') {
