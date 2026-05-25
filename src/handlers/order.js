@@ -76,7 +76,7 @@ module.exports = (bot) => {
         
         // Wait, Telegraf max length is 4096. Account details can be long.
         // Send the header first
-        await safeEditMessage(ctx, text, Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Menu Utama', 'menu_utama')]])).catch(()=>{});
+        await safeEditMessage(ctx, text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]])).catch(()=>{});
         
         // Send details individually
         for (const item of res.items) {
@@ -134,7 +134,7 @@ module.exports = (bot) => {
 
                 const kb = Markup.inlineKeyboard([
                     [Markup.button.callback('🔄 Cek Status Pembayaran', `cek_status_qris:${tx.invoice_id}`)],
-                    [Markup.button.callback('🟥 ❌ Batalkan Pesanan', `cancel_order:${tx.invoice_id}`)]
+                    [Markup.button.callback('❌ Batalkan', `cancel_order:${tx.invoice_id}`)]
                 ]);
 
                 ctx.session.order = null;
@@ -159,7 +159,7 @@ module.exports = (bot) => {
             ctx.session.order.qris_manual = true;
             
             let text = `Pembayaran QRIS Manual\n\nTotal: Rp ${formatRupiah(total)}\nSilakan transfer ke QRIS berikut dan kirim bukti transfer.`;
-            const kb = Markup.inlineKeyboard([[Markup.button.callback('🟥 ❌ Batalkan Pesanan', 'cancel_order_session')]]);
+            const kb = Markup.inlineKeyboard([[Markup.button.callback('❌ Batalkan', 'cancel_order_session')]]);
 
             ctx.session.order = null;
             ctx.session.manual_qris_payment = {
@@ -296,7 +296,7 @@ async function handleRiwayat(ctx, isEdit) {
     
     if (txs.length === 0) {
         const txt = 'Belum ada riwayat transaksi.';
-        const kb = Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]]);
+        const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
         return isEdit ? safeEditMessage(ctx, txt, kb) : ctx.reply(txt, kb);
     }
 
@@ -308,7 +308,7 @@ async function handleRiwayat(ctx, isEdit) {
         text += `Status: ${t.status}\n\n`;
     });
 
-    const kb = Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]]);
+    const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
     if (isEdit) {
         await safeEditMessage(ctx, text, kb).catch(()=>{});
     } else {
@@ -318,7 +318,7 @@ async function handleRiwayat(ctx, isEdit) {
 
 async function handleCaraOrder(ctx, isEdit) {
     const text = `📖 CARA ORDER\n\n1. Klik List Produk\n2. Pilih produk\n3. Pilih varian\n4. Atur jumlah pesanan\n5. Bayar pakai saldo\n6. Produk dikirim otomatis oleh bot`;
-    const kb = Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]]);
+    const kb = Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]);
     if (isEdit) {
         await safeEditMessage(ctx, text, kb).catch(()=>{});
     } else {
@@ -355,9 +355,9 @@ async function renderOrderConf(ctx) {
             [Markup.button.callback('-1', 'qty_sub_1'), Markup.button.callback('+1', 'qty_add_1')],
             [Markup.button.callback('-5', 'qty_sub_5'), Markup.button.callback('+5', 'qty_add_5')],
             [Markup.button.callback('-10', 'qty_sub_10'), Markup.button.callback('+10', 'qty_add_10')],
-            [Markup.button.callback('🟢 💰 Bayar dengan Saldo 🟢', 'pay_saldo')],
-            [Markup.button.callback('🟢 💳 Bayar dengan QRIS 🟢', 'pay_qris')],
-            [Markup.button.callback('🟥 ⬅️ Back', `prod_${product.id}`), Markup.button.callback('🔄 Refresh', 'refresh_order')]
+            [Markup.button.callback('💰 Bayar dengan Saldo', 'pay_saldo')],
+            [Markup.button.callback('💳 Bayar dengan QRIS', 'pay_qris')],
+            [Markup.button.callback('⬅️ Back', `prod_${product.id}`), Markup.button.callback('🔄 Refresh', 'refresh_order')]
         ]);
 
         await safeEditMessage(ctx, text, keyboard).catch(() => {});

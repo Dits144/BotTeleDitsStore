@@ -34,7 +34,7 @@ module.exports = (bot) => {
         try {
             const products = await getPopularProducts();
             if (products.length === 0) {
-                return safeEditMessage(ctx, 'Belum ada produk populer.', Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]]));
+                return safeEditMessage(ctx, 'Belum ada produk populer.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]));
             }
 
             let text = `🔥 PRODUK POPULER 🔥\n\n`;
@@ -42,7 +42,7 @@ module.exports = (bot) => {
                 text += `${i + 1}. ${p.name} (${p.sold_count} terjual)\n`;
             });
 
-            await safeEditMessage(text, Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]])).catch(()=>{});
+            await safeEditMessage(text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
         } catch (error) {
             console.error(error);
         }
@@ -55,7 +55,7 @@ module.exports = (bot) => {
             buyers.forEach((b, i) => {
                 text += `${i + 1}. ${b.full_name || b.username || b.telegram_id} - Rp ${formatRupiah(b.total_spent)}\n`;
             });
-            await safeEditMessage(ctx, text, Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]])).catch(()=>{});
+            await safeEditMessage(ctx, text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
         } catch (err) {
             console.error(err);
         }
@@ -71,14 +71,12 @@ async function showProductList(ctx, page, isReply = false, bannerId = null) {
 
         const keyboard = [];
         let row = [];
-        const emojiNumbers = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
         products.forEach((p, index) => {
             const num = (page - 1) * 10 + index + 1;
             text += `┊ [ ${num} ] ${p.name}\n`;
             
-            const btnLabel = emojiNumbers[index] || num.toString();
-            row.push(Markup.button.callback(btnLabel, `prod_${p.id}`));
+            row.push(Markup.button.callback(num.toString(), `prod_${p.id}`));
             if (row.length === 5) {
                 keyboard.push(row);
                 row = [];
@@ -95,7 +93,7 @@ async function showProductList(ctx, page, isReply = false, bannerId = null) {
         if (currentPage < totalPages) navRow.push(Markup.button.callback('Next ➡️', `page_prod_${currentPage + 1}`));
         
         keyboard.push(navRow);
-        keyboard.push([Markup.button.callback('🟥 ⬅️ Menu Utama', 'menu_utama')]);
+        keyboard.push([Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]);
 
         if (ctx.updateType === 'message' || isReply) {
             if (bannerId) {
@@ -139,17 +137,14 @@ async function showProductDetail(ctx, productId) {
         } else {
             variants.forEach(v => {
                 text += `┊・${v.name} : Rp ${formatRupiah(v.price)} - Stok: ${v.stock}.\n`;
-                // Warna tombol variasi: Hijau 🟢 jika ready, Merah 🔴 jika kosong
-                const statusEmoji = v.stock > 0 ? '🟢' : '🔴';
-                keyboard.push([Markup.button.callback(`${statusEmoji} ${v.name} - Rp ${formatRupiah(v.price)}`, `var_${v.id}`)]);
+                keyboard.push([Markup.button.callback(`${v.name} - Rp ${formatRupiah(v.price)}`, `var_${v.id}`)]);
             });
         }
         text += `╰ - - - - - - - - - - - - - - - - - - - - - ╯\n`;
         text += `╰➤ Refresh at ${formatDateTimeWIB()}`;
 
-        // Tombol Back berwarna Merah (🟥)
         keyboard.push([
-            Markup.button.callback('🟥 ⬅️ Back', 'menu_list_produk'),
+            Markup.button.callback('⬅️ Back', 'menu_list_produk'),
             Markup.button.callback('🔄 Refresh', `prod_${productId}`)
         ]);
 
@@ -158,4 +153,5 @@ async function showProductDetail(ctx, productId) {
         console.error('Error showProductDetail:', error);
     }
 }
+
 
