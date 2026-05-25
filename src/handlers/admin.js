@@ -656,8 +656,9 @@ module.exports = (bot) => {
             return ctx.answerCbQuery('❌ Fitur ini hanya untuk owner.', { show_alert: true });
         }
 
-        let text = `⚠️ PERINGATAN!\nFitur ini akan menghapus SEMUA data:\n`;
-        text += `- Produk\n- Varian\n- Stok\n- Transaksi\n- Top up\n- Riwayat saldo\n- User saldo akan di-reset ke 0\n\n`;
+        let text = `⚠️ PERINGATAN!\nFitur ini akan menghapus data statistik & transaksi:\n`;
+        text += `- Transaksi & Top up\n- Riwayat Saldo\n- Reset Saldo & Belanja User ke 0\n- Reset Jumlah Terjual Produk ke 0\n- Menghapus Stok Terjual (stok tersedia tetap disimpan)\n\n`;
+        text += `*(Produk, Varian, dan Stok yang belum terjual tetap aman/tidak dihapus)*\n\n`;
         text += `Apakah Anda yakin?`;
 
         const kb = Markup.inlineKeyboard([
@@ -884,19 +885,19 @@ module.exports = (bot) => {
                 const db = require('../database/db');
                 const dbInstance = await db.getDB();
                 
-                // Clear tables
+                // Clear transactions, topups, saldo logs, and sold stock items.
+                // Keep products, variants, and available stock items!
                 await dbInstance.exec(`
-                    DELETE FROM stock_items;
-                    DELETE FROM variants;
-                    DELETE FROM products;
                     DELETE FROM transactions;
                     DELETE FROM topups;
                     DELETE FROM saldo_logs;
+                    DELETE FROM stock_items WHERE status = 'sold';
                     UPDATE users SET saldo = 0, total_spent = 0;
+                    UPDATE products SET sold_count = 0;
                 `);
                 
                 ctx.session = ctx.session || {}; ctx.session.admin = null;
-                await ctx.reply('✅ Semua data berhasil di-reset dari awal.', adminMenuKeyboard());
+                await ctx.reply('✅ Riwayat transaksi, topup, saldo & statistik berhasil di-reset dari awal (Produk & Stok tersedia tetap disimpan aman).', adminMenuKeyboard());
             } else {
                 ctx.session = ctx.session || {}; ctx.session.admin = null;
                 await ctx.reply('❌ Konfirmasi salah. Clear all dibatalkan.', adminMenuKeyboard());

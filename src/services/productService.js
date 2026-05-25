@@ -3,7 +3,7 @@ const { getDB } = require('../database/db');
 async function getProducts(page = 1, limit = 10) {
     const db = await getDB();
     const offset = (page - 1) * limit;
-    const products = await db.all('SELECT * FROM products WHERE is_active = 1 LIMIT ? OFFSET ?', [limit, offset]);
+    const products = await db.all('SELECT * FROM products WHERE is_active = 1 ORDER BY name ASC LIMIT ? OFFSET ?', [limit, offset]);
     const countResult = await db.get('SELECT COUNT(*) as count FROM products WHERE is_active = 1');
     return {
         products,
