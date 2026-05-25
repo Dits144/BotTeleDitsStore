@@ -48,7 +48,7 @@ async function sendTestimoni(bot, transaction, product, variant, user) {
 
     try {
         // Gunakan token bot testimoni khusus yang diberikan user, fallback ke token default
-        const token = env.TESTIMONI_BOT_TOKEN || '8772417938:AAFgkf_RfmmxFvfl4Jfr7yNi2mDePXRxjtY';
+        const token = env.TESTIMONI_BOT_TOKEN || '8772417938:AAH26VMUIB2aUDLuw2MtbIbQG9LGbhQjrvw';
         const testimoniBot = new Telegraf(token);
 
         await testimoniBot.telegram.sendMessage(env.TESTIMONI_CHANNEL_ID, text);
