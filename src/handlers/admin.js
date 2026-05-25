@@ -761,21 +761,38 @@ module.exports = (bot) => {
             // Parser multi-stok massal (bulk upload)
             const lines = text.split(/\r?\n/);
             let accounts = [];
-            let currentAccount = [];
             
-            for (const line of lines) {
-                const trimmed = line.trim();
-                // Deteksi awal akun baru (diawali angka 1. Email atau email: atau "Email:")
-                if (trimmed.match(/^\d+\.\s+Email:/i) || trimmed.toLowerCase().startsWith('email:')) {
-                    if (currentAccount.length > 0) {
-                        accounts.push(currentAccount.join('\n'));
-                        currentAccount = [];
+            // Cek apakah format blok (mengandung kata kunci "Email:")
+            const isBlockFormat = text.toLowerCase().includes('email:');
+            
+            if (isBlockFormat) {
+                let currentAccount = [];
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    // Deteksi awal akun baru (diawali angka 1. Email atau email: atau "Email:")
+                    if (trimmed.match(/^\d+\.\s+Email:/i) || trimmed.toLowerCase().startsWith('email:')) {
+                        if (currentAccount.length > 0) {
+                            accounts.push(currentAccount.join('\n'));
+                            currentAccount = [];
+                        }
+                    }
+                    currentAccount.push(line);
+                }
+                if (currentAccount.length > 0) {
+                    accounts.push(currentAccount.join('\n'));
+                }
+            } else {
+                // Format satu baris per akun (list)
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.length > 0) {
+                        // Bersihkan nomor urut di awal baris (misal "1. ", "2. ") jika ada
+                        const cleaned = trimmed.replace(/^\d+\.\s*/, '');
+                        if (cleaned.length > 0) {
+                            accounts.push(cleaned);
+                        }
                     }
                 }
-                currentAccount.push(line);
-            }
-            if (currentAccount.length > 0) {
-                accounts.push(currentAccount.join('\n'));
             }
 
             // Jika tidak terdeteksi pemisah massal, gunakan seluruh teks
