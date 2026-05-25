@@ -84,10 +84,14 @@ module.exports = (bot) => {
         }
 
         let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
-        if (variant && variant.warranty) {
-            tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+        if (product && product.tnc) {
+            tnc += `${product.tnc}\n\n`;
         } else {
-            tnc += `GARANSI RESMI DITSSTORE\n\n`;
+            if (variant && variant.warranty) {
+                tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+            } else {
+                tnc += `GARANSI RESMI DITSSTORE\n\n`;
+            }
         }
         tnc += `Thank you for your purchase 🙏\n`;
         tnc += `If you need help, please contact admin.`;

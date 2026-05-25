@@ -122,6 +122,7 @@ async function runMigrations() {
     await addColumnIfNotExists('transactions', 'approved_by', 'INTEGER');
     await addColumnIfNotExists('transactions', 'proof_file_id', 'TEXT');
     await addColumnIfNotExists('transactions', 'proof_caption', 'TEXT');
+    await addColumnIfNotExists('products', 'tnc', 'TEXT');
 
     const countProd = await db.get('SELECT COUNT(*) as count FROM products');
     if (countProd.count === 0) {

@@ -136,12 +136,18 @@ module.exports = (bot) => {
         ctx.answerCbQuery().catch(()=>{});
     });
 
-    // MP - UPDATE DESK
     bot.action(/admin_mp_upddesk_(\d+)/, async (ctx) => {
-        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.').catch(()=>{});
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
         const id = parseInt(ctx.match[1]);
         ctx.session = ctx.session || {}; ctx.session.admin = { step: 'mp_update_desc', id };
         await ctx.editMessageText('Masukkan isi desk/deskripsi produk:', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', `admin_manage_product:${id}`)]])).catch(()=>{});
+        ctx.answerCbQuery().catch(()=>{});
+    });
+    bot.action(/admin_mp_updtnc_(\d+)/, async (ctx) => {
+        if (!(await isAdmin(ctx))) return ctx.answerCbQuery('Akses ditolak.');
+        const id = parseInt(ctx.match[1]);
+        ctx.session = ctx.session || {}; ctx.session.admin = { step: 'mp_update_tnc', id };
+        await ctx.editMessageText('Masukkan isi Syarat & Ketentuan (S&K) produk baru:', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', `admin_manage_product:${id}`)]])).catch(()=>{});
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -595,12 +601,17 @@ module.exports = (bot) => {
             
             const { getProductById, getVariantById } = require('../services/productService');
             const variant = await getVariantById(tx.variant_id);
+            const product = await getProductById(tx.product_id);
             
             let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
-            if (variant && variant.warranty) {
-                tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+            if (product && product.tnc) {
+                tnc += `${product.tnc}\n\n`;
             } else {
-                tnc += `GARANSI RESMI DITSSTORE\n\n`;
+                if (variant && variant.warranty) {
+                    tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+                } else {
+                    tnc += `GARANSI RESMI DITSSTORE\n\n`;
+                }
             }
             tnc += `Thank you for your purchase 🙏\n`;
             tnc += `If you need help, please contact admin.`;
@@ -608,7 +619,6 @@ module.exports = (bot) => {
             await bot.telegram.sendMessage(tx.user_id, tnc).catch(()=>{});
             
             const { getUserById } = require('../services/userService');
-            const product = await getProductById(tx.product_id);
             const user = await getUserById(tx.user_id);
             
             const { sendTestimoni } = require('../utils/testimoni');
@@ -714,6 +724,13 @@ module.exports = (bot) => {
             const pId = ctx.session.admin.id;
             ctx.session = ctx.session || {}; ctx.session.admin = null;
             await ctx.reply('✅ Desk produk berhasil diperbarui.');
+            await sendKelolaProdukMenuReply(ctx, pId);
+        }
+        else if (step === 'mp_update_tnc') {
+            await updateProduct(ctx.session.admin.id, { tnc: text });
+            const pId = ctx.session.admin.id;
+            ctx.session = ctx.session || {}; ctx.session.admin = null;
+            await ctx.reply('✅ Syarat & Ketentuan (S&K) produk berhasil diperbarui.');
             await sendKelolaProdukMenuReply(ctx, pId);
         }
         else if (step === 'WAITING_VARIANT_NAME') {
@@ -937,6 +954,7 @@ async function sendKelolaProdukMenuEdit(ctx, productId) {
     text += `┊・ Produk: ${p.name}\n`;
     text += `┊・ Stok Terjual: ${p.sold_count}\n`;
     text += `┊・ Desk: ${p.description || '-'}\n`;
+    text += `┊・ S&K: ${p.tnc || '-'}\n`;
     text += `╰ - - - - - - - - - - - - - - - - - - - - - ╯\n`;
     text += `╭ - - - - - - - - - - - - - - - - - - - - - ╮\n`;
     text += `┊ Variasi, Harga & Stok:\n`;
@@ -952,10 +970,11 @@ async function sendKelolaProdukMenuEdit(ctx, productId) {
     text += `╰➤ Refresh at ${formatDateTimeWIB()}`;
 
     const kb = Markup.inlineKeyboard([
-        [Markup.button.callback('✏️ Update Desk', `admin_mp_upddesk_${p.id}`), Markup.button.callback('➕ Add Variasi', `admin_mp_addvar_${p.id}`)],
-        [Markup.button.callback('🗑️ Del Variasi', `admin_mp_delvar_${p.id}`), Markup.button.callback('📦 Add Stok', `admin_mp_addstok_${p.id}`)],
-        [Markup.button.callback('📋 List Stok', `admin_mp_liststok_${p.id}`), Markup.button.callback('🗑️ Del Stok', `admin_mp_delstok_${p.id}`)],
-        [Markup.button.callback('⬅️ Back', 'admin_manage_product'), Markup.button.callback('🔄 Refresh', `admin_manage_product:${p.id}`)]
+        [Markup.button.callback('✏️ Update Desk', `admin_mp_upddesk_${p.id}`), Markup.button.callback('📝 Update S&K', `admin_mp_updtnc_${p.id}`)],
+        [Markup.button.callback('➕ Add Variasi', `admin_mp_addvar_${p.id}`), Markup.button.callback('🗑️ Del Variasi', `admin_mp_delvar_${p.id}`)],
+        [Markup.button.callback('📦 Add Stok', `admin_mp_addstok_${p.id}`), Markup.button.callback('📋 List Stok', `admin_mp_liststok_${p.id}`)],
+        [Markup.button.callback('🗑️ Del Stok', `admin_mp_delstok_${p.id}`), Markup.button.callback('⬅️ Back', 'admin_manage_product')],
+        [Markup.button.callback('🔄 Refresh', `admin_manage_product:${p.id}`)]
     ]);
     await ctx.editMessageText(text, kb).catch(()=>{});
 }
@@ -973,6 +992,7 @@ async function sendKelolaProdukMenuReply(ctx, productId) {
     text += `┊・ Produk: ${p.name}\n`;
     text += `┊・ Stok Terjual: ${p.sold_count}\n`;
     text += `┊・ Desk: ${p.description || '-'}\n`;
+    text += `┊・ S&K: ${p.tnc || '-'}\n`;
     text += `╰ - - - - - - - - - - - - - - - - - - - - - ╯\n`;
     text += `╭ - - - - - - - - - - - - - - - - - - - - - ╮\n`;
     text += `┊ Variasi, Harga & Stok:\n`;
@@ -988,10 +1008,11 @@ async function sendKelolaProdukMenuReply(ctx, productId) {
     text += `╰➤ Refresh at ${formatDateTimeWIB()}`;
 
     const kb = Markup.inlineKeyboard([
-        [Markup.button.callback('✏️ Update Desk', `admin_mp_upddesk_${p.id}`), Markup.button.callback('➕ Add Variasi', `admin_mp_addvar_${p.id}`)],
-        [Markup.button.callback('🗑️ Del Variasi', `admin_mp_delvar_${p.id}`), Markup.button.callback('📦 Add Stok', `admin_mp_addstok_${p.id}`)],
-        [Markup.button.callback('📋 List Stok', `admin_mp_liststok_${p.id}`), Markup.button.callback('🗑️ Del Stok', `admin_mp_delstok_${p.id}`)],
-        [Markup.button.callback('⬅️ Back', 'admin_manage_product'), Markup.button.callback('🔄 Refresh', `admin_manage_product:${p.id}`)]
+        [Markup.button.callback('✏️ Update Desk', `admin_mp_upddesk_${p.id}`), Markup.button.callback('📝 Update S&K', `admin_mp_updtnc_${p.id}`)],
+        [Markup.button.callback('➕ Add Variasi', `admin_mp_addvar_${p.id}`), Markup.button.callback('🗑️ Del Variasi', `admin_mp_delvar_${p.id}`)],
+        [Markup.button.callback('📦 Add Stok', `admin_mp_addstok_${p.id}`), Markup.button.callback('📋 List Stok', `admin_mp_liststok_${p.id}`)],
+        [Markup.button.callback('🗑️ Del Stok', `admin_mp_delstok_${p.id}`), Markup.button.callback('⬅️ Back', 'admin_manage_product')],
+        [Markup.button.callback('🔄 Refresh', `admin_manage_product:${p.id}`)]
     ]);
     await ctx.reply(text, kb).catch(()=>{});
 }
