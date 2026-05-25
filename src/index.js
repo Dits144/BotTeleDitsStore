@@ -92,12 +92,24 @@ async function startBot() {
                             for (const item of result.items) {
                                 await bot.telegram.sendMessage(tx.user_id, item);
                             }
-                            await bot.telegram.sendMessage(tx.user_id, `───「 📋 SYARAT & KETENTUAN 」───\n\n💻 CEK PRO DI PC/WEB : GANTI SPACE (TEAM) DIKIRI BAWAH\n❌ Login melebihi batas = tidak bergaransi\n🔁 Maksimal login: 2 perangkat\n(Login berlebihan = MAX / hangus garansi)\n🔐 Login via Email (bukan Google)\n📧 Akses Email: generator.email\n\nThank you for your purchase 🙏\nIf you need help, please contact admin.`);
                             
-                            const { getProductById, getVariantById } = require('./services/productService');
+                            const { getVariantById } = require('./services/productService');
+                            const variant = await getVariantById(tx.variant_id);
+                            
+                            let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
+                            if (variant && variant.warranty) {
+                                tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+                            } else {
+                                tnc += `GARANSI RESMI DITSSTORE\n\n`;
+                            }
+                            tnc += `Thank you for your purchase 🙏\n`;
+                            tnc += `If you need help, please contact admin.`;
+                            
+                            await bot.telegram.sendMessage(tx.user_id, tnc).catch(console.error);
+                            
+                            const { getProductById } = require('./services/productService');
                             const { getUserById } = require('./services/userService');
                             const product = await getProductById(tx.product_id);
-                            const variant = await getVariantById(tx.variant_id);
                             const user = await getUserById(tx.user_id);
                             
                             const { sendTestimoni } = require('./utils/testimoni');

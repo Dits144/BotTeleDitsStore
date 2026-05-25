@@ -83,6 +83,17 @@ module.exports = (bot) => {
             await ctx.reply(item);
         }
 
+        let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
+        if (variant && variant.warranty) {
+            tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+        } else {
+            tnc += `GARANSI RESMI DITSSTORE\n\n`;
+        }
+        tnc += `Thank you for your purchase 🙏\n`;
+        tnc += `If you need help, please contact admin.`;
+        
+        await ctx.reply(tnc).catch(()=>{});
+
         const { sendTestimoni } = require('../utils/testimoni');
         sendTestimoni(bot, { total_price: res.total_price, payment_method: 'saldo', invoice_id: res.invoice_id }, product, variant, user);
     });

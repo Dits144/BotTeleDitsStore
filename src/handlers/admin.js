@@ -592,10 +592,23 @@ module.exports = (bot) => {
             for (const item of res.items) {
                 await bot.telegram.sendMessage(tx.user_id, item);
             }
+            
             const { getProductById, getVariantById } = require('../services/productService');
+            const variant = await getVariantById(tx.variant_id);
+            
+            let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
+            if (variant && variant.warranty) {
+                tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+            } else {
+                tnc += `GARANSI RESMI DITSSTORE\n\n`;
+            }
+            tnc += `Thank you for your purchase 🙏\n`;
+            tnc += `If you need help, please contact admin.`;
+            
+            await bot.telegram.sendMessage(tx.user_id, tnc).catch(()=>{});
+            
             const { getUserById } = require('../services/userService');
             const product = await getProductById(tx.product_id);
-            const variant = await getVariantById(tx.variant_id);
             const user = await getUserById(tx.user_id);
             
             const { sendTestimoni } = require('../utils/testimoni');
