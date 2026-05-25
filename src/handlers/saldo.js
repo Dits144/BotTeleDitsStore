@@ -5,6 +5,17 @@ const { formatRupiah } = require('../utils/format');
 const { Markup } = require('telegraf');
 const env = require('../config/env');
 
+// Helper to safely edit message caption if it has a photo, otherwise edit message text
+async function safeEditMessage(ctx, text, keyboardMarkup) {
+    if (ctx.callbackQuery && ctx.callbackQuery.message && ctx.callbackQuery.message.photo) {
+        return await ctx.editMessageCaption(text, {
+            reply_markup: keyboardMarkup?.reply_markup
+        }).catch(()=>{});
+    } else {
+        return await ctx.editMessageText(text, keyboardMarkup).catch(()=>{});
+    }
+}
+
 module.exports = (bot) => {
     bot.command('saldo', async (ctx) => {
         await showSaldoMenu(ctx);
@@ -22,7 +33,7 @@ module.exports = (bot) => {
     bot.action('topup_manual', async (ctx) => {
         ctx.session = ctx.session || {};
         ctx.session.user_state = 'WAITING_TOPUP_AMOUNT';
-        await ctx.reply('Silakan ketik nominal top up (minimal Rp 5.000).\nContoh: 15000', Markup.inlineKeyboard([[Markup.button.callback('Batal', 'cancel_topup')]]));
+        await ctx.reply('Silakan ketik nominal top up (minimal Rp 5.000).\nContoh: 15000', Markup.inlineKeyboard([[Markup.button.callback('🟥 Batal', 'cancel_topup')]]));
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -31,7 +42,7 @@ module.exports = (bot) => {
             ctx.session.step = null;
             ctx.session.user_state = null;
         }
-        await ctx.editMessageText('Top up dibatalkan.').catch(()=>{});
+        await safeEditMessage(ctx, 'Top up dibatalkan.').catch(()=>{});
     });
 
     bot.action(/^topup_upload_proof:(\d+)$/, async (ctx) => {
@@ -40,7 +51,7 @@ module.exports = (bot) => {
         ctx.session.topup_state = 'WAITING_PROOF';
         ctx.session.topup_amount = nominal;
         
-        await ctx.reply(`📤 Silakan upload screenshot/foto bukti transfer untuk top up Rp ${formatRupiah(nominal)}.\nKirim gambar ke chat ini.`, Markup.inlineKeyboard([[Markup.button.callback('Batal', 'cancel_topup')]]));
+        await ctx.reply(`📤 Silakan upload screenshot/foto bukti transfer untuk top up Rp ${formatRupiah(nominal)}.\nKirim gambar ke chat ini.`, Markup.inlineKeyboard([[Markup.button.callback('🟥 Batal', 'cancel_topup')]]));
         ctx.answerCbQuery().catch(()=>{});
     });
 
@@ -56,7 +67,7 @@ module.exports = (bot) => {
                 ctx.session.topup_state = null;
                 ctx.session.topup_amount = null;
 
-                await ctx.reply('✅ Bukti transfer berhasil dikirim.\nSilakan tunggu admin mengkonfirmasi pembayaran Anda.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]]));
+                await ctx.reply('✅ Bukti transfer berhasil dikirim.\nSilakan tunggu admin mengkonfirmasi pembayaran Anda.', Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Menu Utama', 'menu_utama')]]));
 
                 const { formatDateTimeWIB } = require('../utils/time');
                 const { getAllAdmins } = require('../services/userService');
@@ -132,14 +143,14 @@ async function showSaldoMenu(ctx, isEdit = false) {
         const text = `Detail Saldo Anda di DitsStore\n\nSaldo Anda saat ini: Rp ${formatRupiah(user.saldo)}\n\nMau isi saldo? Silakan pilih nominal dibawah ini:`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('Rp 10.000', 'topup_10000'), Markup.button.callback('Rp 25.000', 'topup_25000')],
-            [Markup.button.callback('Rp 50.000', 'topup_50000'), Markup.button.callback('Rp 100.000', 'topup_100000')],
-            [Markup.button.callback('Isi Nominal', 'topup_manual')],
-            [Markup.button.callback('⬅️ Back', 'menu_utama')]
+            [Markup.button.callback('💵 Rp 10.000', 'topup_10000'), Markup.button.callback('💵 Rp 25.000', 'topup_25000')],
+            [Markup.button.callback('💵 Rp 50.000', 'topup_50000'), Markup.button.callback('💵 Rp 100.000', 'topup_100000')],
+            [Markup.button.callback('🟨 Isi Nominal', 'topup_manual')],
+            [Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]
         ]);
 
         if (isEdit && ctx.updateType === 'callback_query') {
-            await ctx.editMessageText(text, keyboard).catch(()=>{});
+            await safeEditMessage(ctx, text, keyboard).catch(()=>{});
         } else {
             await ctx.reply(text, keyboard);
         }
@@ -154,8 +165,8 @@ async function processTopupNominal(ctx, nominal) {
         let text = `Anda akan top up sebesar Rp ${formatRupiah(nominal)}.\n\nSilakan transfer ke QRIS berikut.`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('📤 Upload Bukti Transfer', `topup_upload_proof:${nominal}`)],
-            [Markup.button.callback('⬅️ Back', 'menu_saldo')]
+            [Markup.button.callback('🟩 📤 Upload Bukti Transfer 🟩', `topup_upload_proof:${nominal}`)],
+            [Markup.button.callback('🟥 ⬅️ Back', 'menu_saldo')]
         ]);
 
         const isCallback = ctx.updateType === 'callback_query';
@@ -165,7 +176,7 @@ async function processTopupNominal(ctx, nominal) {
             await ctx.replyWithPhoto(qrisFileId, { caption: text, reply_markup: keyboard.reply_markup });
         } else {
             if (isCallback) {
-                await ctx.editMessageText(text + '\n\n(QRIS belum diatur oleh admin)', keyboard).catch(()=>{});
+                await safeEditMessage(ctx, text + '\n\n(QRIS belum diatur oleh admin)', keyboard).catch(()=>{});
             } else {
                 await ctx.reply(text + '\n\n(QRIS belum diatur oleh admin)', keyboard);
             }
@@ -175,5 +186,4 @@ async function processTopupNominal(ctx, nominal) {
     }
 }
 
-// Export the function to reuse if needed
 module.exports.processTopupNominal = processTopupNominal;

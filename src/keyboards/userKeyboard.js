@@ -2,23 +2,24 @@ const { Markup } = require('telegraf');
 
 const mainMenu = () => {
     return Markup.inlineKeyboard([
-        [Markup.button.callback('🛒 List Produk', 'menu_list_produk')],
+        [Markup.button.callback('🟩 🛒 LIST PRODUK 🛒 🟩', 'menu_list_produk')],
         [
-            Markup.button.callback('💳 Saldo', 'menu_saldo'),
-            Markup.button.callback('🧾 Riwayat Transaksi', 'menu_riwayat')
+            Markup.button.callback('🟦 💳 SALDO', 'menu_saldo'),
+            Markup.button.callback('🟪 🧾 RIWAYAT', 'menu_riwayat')
         ],
         [
-            Markup.button.callback('📖 Cara Order', 'menu_cara_order'),
-            Markup.button.callback('🔥 Produk Populer', 'menu_populer')
+            Markup.button.callback('🟨 📖 CARA ORDER', 'menu_cara_order'),
+            Markup.button.callback('🟧 🔥 POPULER', 'menu_populer')
         ],
-        [Markup.button.callback('🏆 Top Buyer', 'menu_top_buyer')]
+        [Markup.button.callback('👑 🏆 TOP BUYER 🏆 👑', 'menu_top_buyer')]
     ]);
 };
 
 const backToMenu = () => {
     return Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ Kembali ke Menu Utama', 'menu_utama')]
+        [Markup.button.callback('🟥 ⬅️ Kembali ke Menu Utama', 'menu_utama')]
     ]);
 };
 
 module.exports = { mainMenu, backToMenu };
+

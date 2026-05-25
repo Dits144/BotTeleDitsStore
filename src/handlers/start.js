@@ -1,7 +1,7 @@
 const { getOrCreateUser } = require('../services/userService');
 const { getSetting } = require('../services/adminService');
 const { mainMenu } = require('../keyboards/userKeyboard');
-const { showProductList } = require('./product');
+const { showProductList, safeEditMessage } = require('./product');
 
 module.exports = (bot) => {
     bot.start(async (ctx) => {
@@ -9,11 +9,7 @@ module.exports = (bot) => {
             await getOrCreateUser(ctx);
             const bannerId = await getSetting('start_banner_file_id');
             
-            if (bannerId) {
-                await ctx.replyWithPhoto(bannerId).catch(()=>{});
-            }
-            
-            await showProductList(ctx, 1, true);
+            await showProductList(ctx, 1, true, bannerId);
         } catch (error) {
             console.error('Error in /start:', error);
             ctx.reply('Terjadi kesalahan. Silakan coba lagi nanti.').catch(()=>{});
@@ -25,7 +21,7 @@ module.exports = (bot) => {
             const user = await getOrCreateUser(ctx);
             const text = `Menu Utama DitsStore\n\nSilakan pilih menu di bawah ini:`;
             
-            await ctx.editMessageText(text, mainMenu()).catch(() => {});
+            await safeEditMessage(ctx, text, mainMenu()).catch(() => {});
             ctx.answerCbQuery().catch(()=>{});
         } catch (error) {
             console.error('Error in menu_utama:', error);

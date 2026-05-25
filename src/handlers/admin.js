@@ -599,7 +599,7 @@ module.exports = (bot) => {
             const user = await getUserById(tx.user_id);
             
             const { sendTestimoni } = require('../utils/testimoni');
-            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_manual' }, product, variant, user);
+            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_manual', invoice_id: tx.invoice_id }, product, variant, user);
         }).catch(()=>{});
     });
 

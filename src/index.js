@@ -101,7 +101,7 @@ async function startBot() {
                             const user = await getUserById(tx.user_id);
                             
                             const { sendTestimoni } = require('./utils/testimoni');
-                            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_dynamic' }, product, variant, user);
+                            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_dynamic', invoice_id: tx.invoice_id }, product, variant, user);
                         }).catch(console.error);
                     } else if (result.outOfStock) {
                         const tx = result.transaction;

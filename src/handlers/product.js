@@ -4,6 +4,17 @@ const { formatRupiah } = require('../utils/format');
 const { formatDateTimeWIB } = require('../utils/time');
 const { Markup } = require('telegraf');
 
+// Helper to safely edit message caption if it has a photo, otherwise edit message text
+async function safeEditMessage(ctx, text, keyboardMarkup) {
+    if (ctx.callbackQuery && ctx.callbackQuery.message && ctx.callbackQuery.message.photo) {
+        return await ctx.editMessageCaption(text, {
+            reply_markup: keyboardMarkup.reply_markup
+        }).catch(()=>{});
+    } else {
+        return await ctx.editMessageText(text, keyboardMarkup).catch(()=>{});
+    }
+}
+
 module.exports = (bot) => {
     bot.action('menu_list_produk', async (ctx) => {
         await showProductList(ctx, 1);
@@ -23,7 +34,7 @@ module.exports = (bot) => {
         try {
             const products = await getPopularProducts();
             if (products.length === 0) {
-                return ctx.editMessageText('Belum ada produk populer.', Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]]));
+                return safeEditMessage(ctx, 'Belum ada produk populer.', Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]]));
             }
 
             let text = `🔥 PRODUK POPULER 🔥\n\n`;
@@ -31,7 +42,7 @@ module.exports = (bot) => {
                 text += `${i + 1}. ${p.name} (${p.sold_count} terjual)\n`;
             });
 
-            await ctx.editMessageText(text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
+            await safeEditMessage(text, Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]])).catch(()=>{});
         } catch (error) {
             console.error(error);
         }
@@ -44,29 +55,30 @@ module.exports = (bot) => {
             buyers.forEach((b, i) => {
                 text += `${i + 1}. ${b.full_name || b.username || b.telegram_id} - Rp ${formatRupiah(b.total_spent)}\n`;
             });
-            await ctx.editMessageText(text, Markup.inlineKeyboard([[Markup.button.callback('⬅️ Back', 'menu_utama')]])).catch(()=>{});
+            await safeEditMessage(ctx, text, Markup.inlineKeyboard([[Markup.button.callback('🟥 ⬅️ Back', 'menu_utama')]])).catch(()=>{});
         } catch (err) {
             console.error(err);
         }
     });
 };
 
-async function showProductList(ctx, page, isReply = false) {
+async function showProductList(ctx, page, isReply = false, bannerId = null) {
     try {
         const { getProducts } = require('../services/productService');
         const { products, totalPages, currentPage } = await getProducts(page, 10);
         
         let text = `╭ - - - - - - - - - - - - - - - - - - - ╮\n┊ LIST PRODUK\n┊- - - - - - - - - - - - - - - - - - - - -\n`;
 
-        
         const keyboard = [];
         let row = [];
+        const emojiNumbers = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
         products.forEach((p, index) => {
             const num = (page - 1) * 10 + index + 1;
             text += `┊ [ ${num} ] ${p.name}\n`;
             
-            row.push(Markup.button.callback(num.toString(), `prod_${p.id}`));
+            const btnLabel = emojiNumbers[index] || num.toString();
+            row.push(Markup.button.callback(btnLabel, `prod_${p.id}`));
             if (row.length === 5) {
                 keyboard.push(row);
                 row = [];
@@ -83,12 +95,19 @@ async function showProductList(ctx, page, isReply = false) {
         if (currentPage < totalPages) navRow.push(Markup.button.callback('Next ➡️', `page_prod_${currentPage + 1}`));
         
         keyboard.push(navRow);
-        keyboard.push([Markup.button.callback('⬅️ Menu Utama', 'menu_utama')]);
+        keyboard.push([Markup.button.callback('🟥 ⬅️ Menu Utama', 'menu_utama')]);
 
         if (ctx.updateType === 'message' || isReply) {
-            await ctx.reply(text, Markup.inlineKeyboard(keyboard));
+            if (bannerId) {
+                await ctx.replyWithPhoto(bannerId, {
+                    caption: text,
+                    ...Markup.inlineKeyboard(keyboard)
+                }).catch(()=>{});
+            } else {
+                await ctx.reply(text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
+            }
         } else {
-            await ctx.editMessageText(text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
+            await safeEditMessage(ctx, text, Markup.inlineKeyboard(keyboard));
         }
     } catch (error) {
         console.error('Error showProductList:', error);
@@ -96,6 +115,7 @@ async function showProductList(ctx, page, isReply = false) {
 }
 
 module.exports.showProductList = showProductList;
+module.exports.safeEditMessage = safeEditMessage;
 
 async function showProductDetail(ctx, productId) {
     try {
@@ -119,19 +139,23 @@ async function showProductDetail(ctx, productId) {
         } else {
             variants.forEach(v => {
                 text += `┊・${v.name} : Rp ${formatRupiah(v.price)} - Stok: ${v.stock}.\n`;
-                keyboard.push([Markup.button.callback(`${v.name} - Rp ${formatRupiah(v.price)}`, `var_${v.id}`)]);
+                // Warna tombol variasi: Hijau 🟢 jika ready, Merah 🔴 jika kosong
+                const statusEmoji = v.stock > 0 ? '🟢' : '🔴';
+                keyboard.push([Markup.button.callback(`${statusEmoji} ${v.name} - Rp ${formatRupiah(v.price)}`, `var_${v.id}`)]);
             });
         }
         text += `╰ - - - - - - - - - - - - - - - - - - - - - ╯\n`;
         text += `╰➤ Refresh at ${formatDateTimeWIB()}`;
 
+        // Tombol Back berwarna Merah (🟥)
         keyboard.push([
-            Markup.button.callback('⬅️ Back', 'menu_list_produk'),
+            Markup.button.callback('🟥 ⬅️ Back', 'menu_list_produk'),
             Markup.button.callback('🔄 Refresh', `prod_${productId}`)
         ]);
 
-        await ctx.editMessageText(text, Markup.inlineKeyboard(keyboard)).catch(()=>{});
+        await safeEditMessage(ctx, text, Markup.inlineKeyboard(keyboard));
     } catch (error) {
         console.error('Error showProductDetail:', error);
     }
 }
+
