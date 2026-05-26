@@ -763,35 +763,40 @@ module.exports = (bot) => {
             const lines = text.split(/\r?\n/);
             let accounts = [];
             
-            // Cek apakah format blok (mengandung kata kunci "Email:")
-            const isBlockFormat = text.toLowerCase().includes('email:');
+            // Cek apakah ada baris yang diawali angka + titik (misal "1. ", "2. ")
+            const hasNumberedLines = lines.some(line => line.trim().match(/^\d+\.\s+/));
             
-            if (isBlockFormat) {
+            if (hasNumberedLines) {
                 let currentAccount = [];
                 for (const line of lines) {
                     const trimmed = line.trim();
-                    // Deteksi awal akun baru (diawali angka 1. Email atau email: atau "Email:")
-                    if (trimmed.match(/^\d+\.\s+Email:/i) || trimmed.toLowerCase().startsWith('email:')) {
+                    if (trimmed.length === 0) {
                         if (currentAccount.length > 0) {
-                            accounts.push(currentAccount.join('\n'));
+                            currentAccount.push(line);
+                        }
+                        continue;
+                    }
+                    
+                    const match = trimmed.match(/^\d+\.\s+(.*)/);
+                    if (match) {
+                        if (currentAccount.length > 0) {
+                            accounts.push(currentAccount.join('\n').trim());
                             currentAccount = [];
                         }
+                        currentAccount.push(match[1]);
+                    } else {
+                        currentAccount.push(line);
                     }
-                    currentAccount.push(line);
                 }
                 if (currentAccount.length > 0) {
-                    accounts.push(currentAccount.join('\n'));
+                    accounts.push(currentAccount.join('\n').trim());
                 }
             } else {
-                // Format satu baris per akun (list)
+                // Jika tidak ada nomor urut, setiap baris non-kosong dianggap 1 akun
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (trimmed.length > 0) {
-                        // Bersihkan nomor urut di awal baris (misal "1. ", "2. ") jika ada
-                        const cleaned = trimmed.replace(/^\d+\.\s*/, '');
-                        if (cleaned.length > 0) {
-                            accounts.push(cleaned);
-                        }
+                        accounts.push(trimmed);
                     }
                 }
             }
