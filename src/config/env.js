@@ -5,7 +5,7 @@ module.exports = {
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
     OWNER_ID: process.env.OWNER_ID,
     PAYMENT_GATEWAY: process.env.PAYMENT_GATEWAY || 'pakasir',
-    PAKASIR_API_KEY: process.env.PAKASIR_API_KEY || '8ARNMqo7uXgU5NTweEmWn46Hvewjcp1PtqfXTKDZTj29',
+    PAKASIR_API_KEY: process.env.PAKASIR_API_KEY || 'h3iGwLFLLtAwTu8LJ9Z87s4Y5RUTUnC7',
     PAKASIR_PROJECT: process.env.PAKASIR_PROJECT || 'ditstore',
     QRIS_EXPIRE_MINUTES: parseInt(process.env.QRIS_EXPIRE_MINUTES || '5', 10),
     TESTIMONI_BOT_TOKEN: process.env.TESTIMONI_BOT_TOKEN,
