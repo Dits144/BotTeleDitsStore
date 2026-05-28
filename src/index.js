@@ -68,13 +68,18 @@ async function startBot() {
             try {
                 const data = req.body;
                 
-                // Validate Signature Key Midtrans
-                const hash = crypto.createHash('sha512').update(data.order_id + data.status_code + data.gross_amount + env.MIDTRANS_SERVER_KEY).digest('hex');
-                if (data.signature_key !== hash) {
-                    return res.status(401).send('Invalid signature');
+                const { validateWebhook, checkTransactionStatus } = require('./services/pakasirService');
+                
+                // Validate Pakasir Webhook Payload
+                if (!validateWebhook(data)) {
+                    console.warn('[Webhook] Invalid Webhook Payload received:', data);
+                    return res.status(400).send('Invalid signature or project slug');
                 }
 
-                if (data.transaction_status === 'settlement' || data.transaction_status === 'capture') {
+                // Check Transaction Status directly with Pakasir API for complete security
+                const statusRes = await checkTransactionStatus(data.order_id, data.amount);
+                
+                if (statusRes && statusRes.transaction && statusRes.transaction.status === 'completed') {
                     const result = await updateOrderToSuccess(data.order_id);
                     if (result.success) {
                         const tx = result.transaction;

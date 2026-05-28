@@ -126,35 +126,37 @@ module.exports = (bot) => {
 
         if (qrisMode === 'dynamic') {
             const { createPendingOrder } = require('../services/orderService');
-            const { createDynamicQRIS } = require('../services/midtransService');
+            const { createQRISTransaction } = require('../services/pakasirService');
             
             // Create pending transaction first
             const tx = await createPendingOrder(user.id, variant.product_id, variantId, qty, 'qris_dynamic');
             
             try {
-                // Generate QRIS using Midtrans
-                const midtransResponse = await createDynamicQRIS(tx.invoice_id, tx.total_price);
-                const qrUrl = midtransResponse.actions.find(a => a.name === 'generate-qr-code')?.url;
+                // Generate QRIS using Pakasir
+                const pakasirResponse = await createQRISTransaction(tx.invoice_id, tx.total_price);
+                const paymentNumber = pakasirResponse.payment?.payment_number;
                 
-                // Update TX with QR URL
-                await dbInstance.run('UPDATE transactions SET payment_qr_url = ? WHERE invoice_id = ?', [qrUrl, tx.invoice_id]);
+                if (paymentNumber) {
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(paymentNumber)}&size=300x300`;
+                    
+                    // Update TX with QR URL and Raw QR String
+                    await dbInstance.run('UPDATE transactions SET payment_qr_url = ?, payment_qr_string = ? WHERE invoice_id = ?', [qrUrl, paymentNumber, tx.invoice_id]);
 
-                let text = `💳 Pembayaran QRIS Dinamis\n\n`;
-                text += `ID Transaksi: ${tx.invoice_id}\n`;
-                text += `Produk: ${product.name}\n`;
-                text += `Variant: ${variant.name}\n`;
-                text += `Jumlah: ${qty}\n`;
-                text += `Total: Rp ${formatRupiah(total)}\n\n`;
-                text += `Silakan scan QRIS berikut.\nQRIS berlaku selama 5 menit.`;
+                    let text = `💳 Pembayaran QRIS Dinamis\n\n`;
+                    text += `ID Transaksi: ${tx.invoice_id}\n`;
+                    text += `Produk: ${product.name}\n`;
+                    text += `Variant: ${variant.name}\n`;
+                    text += `Jumlah: ${qty}\n`;
+                    text += `Total: Rp ${formatRupiah(total)}\n\n`;
+                    text += `Silakan scan QRIS berikut.\nQRIS berlaku selama 5 menit.`;
 
-                const kb = Markup.inlineKeyboard([
-                    [Markup.button.callback('🔄 Cek Status Pembayaran', `cek_status_qris:${tx.invoice_id}`)],
-                    [Markup.button.callback('❌ Batalkan', `cancel_order:${tx.invoice_id}`)]
-                ]);
+                    const kb = Markup.inlineKeyboard([
+                        [Markup.button.callback('🔄 Cek Status Pembayaran', `cek_status_qris:${tx.invoice_id}`)],
+                        [Markup.button.callback('❌ Batalkan', `cancel_order:${tx.invoice_id}`)]
+                    ]);
 
-                ctx.session.order = null;
-                
-                if (qrUrl) {
+                    ctx.session.order = null;
+                    
                     await safeEditMessage(ctx, 'Mohon tunggu, generate QRIS...').catch(()=>{});
                     await ctx.deleteMessage().catch(()=>{});
                     await ctx.replyWithPhoto(qrUrl, { caption: text, reply_markup: kb.reply_markup });
@@ -200,6 +202,64 @@ module.exports = (bot) => {
         if (!tx) return ctx.answerCbQuery('Transaksi tidak ditemukan.', {show_alert: true});
         
         if (tx.status === 'pending') {
+            try {
+                const { checkTransactionStatus } = require('../services/pakasirService');
+                const statusRes = await checkTransactionStatus(tx.invoice_id, tx.total_price);
+                
+                if (statusRes && statusRes.transaction && statusRes.transaction.status === 'completed') {
+                    const { updateOrderToSuccess } = require('../services/orderService');
+                    const result = await updateOrderToSuccess(tx.invoice_id);
+                    
+                    if (result.success) {
+                        const txSuccess = result.transaction;
+                        
+                        let text = `✅ Pembayaran Berhasil\n`;
+                        text += `📅 Tanggal : ${require('../utils/time').formatDateTimeWIB()}\n\n`;
+                        text += `Informasi Pembelian:\n`;
+                        text += `ID Transaksi: ${txSuccess.invoice_id}\n`;
+                        text += `Jumlah Pesanan: ${txSuccess.qty}\n`;
+                        text += `Total Pembayaran: Rp ${formatRupiah(txSuccess.total_price)}\n\n`;
+                        text += `🔐 Account Details\n`;
+                        
+                        await bot.telegram.sendMessage(txSuccess.user_id, text);
+                        for (const item of result.items) {
+                            await bot.telegram.sendMessage(txSuccess.user_id, item);
+                        }
+                        
+                        const { getVariantById, getProductById } = require('../services/productService');
+                        const variant = await getVariantById(txSuccess.variant_id);
+                        const product = await getProductById(txSuccess.product_id);
+                        
+                        let tnc = `───「 📋 SYARAT & KETENTUAN 」───\n\n`;
+                        if (product && product.tnc) {
+                            tnc += `${product.tnc}\n\n`;
+                        } else {
+                            if (variant && variant.warranty) {
+                                tnc += `GARANSI ${variant.warranty.toUpperCase()}\n\n`;
+                            } else {
+                                tnc += `GARANSI RESMI DITSSTORE\n\n`;
+                            }
+                        }
+                        tnc += `Thank you for your purchase 🙏\n`;
+                        tnc += `If you need help, please contact admin.`;
+                        
+                        await bot.telegram.sendMessage(txSuccess.user_id, tnc).catch(console.error);
+                        
+                        const { getUserById } = require('../services/userService');
+                        const user = await getUserById(txSuccess.user_id);
+                        
+                        const { sendTestimoni } = require('../utils/testimoni');
+                        sendTestimoni(bot, { total_price: txSuccess.total_price, payment_method: 'qris_dynamic', invoice_id: txSuccess.invoice_id }, product, variant, user);
+                        
+                        return ctx.answerCbQuery('✅ Pembayaran berhasil diterima! Akun telah dikirim.', { show_alert: true });
+                    } else if (result.outOfStock) {
+                        return ctx.answerCbQuery('⚠️ Pembayaran sukses tetapi stok habis. Hubungi admin.', { show_alert: true });
+                    }
+                }
+            } catch (err) {
+                console.error('[Pakasir Cek Status Error]', err);
+            }
+
             if (new Date(tx.expired_at) < new Date()) {
                 const db = await require('../database/db').getDB();
                 await db.run('UPDATE transactions SET status = "expired" WHERE id = ?', [tx.id]);
