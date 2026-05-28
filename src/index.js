@@ -73,6 +73,10 @@ async function startBot() {
                 // Validate Pakasir Webhook Payload
                 if (!validateWebhook(data)) {
                     console.warn('[Webhook] Invalid Webhook Payload received:', data);
+                    // Return 200 OK for ping/test requests to satisfy dashboard verification
+                    if (!data || Object.keys(data).length === 0 || data.type === 'ping' || !data.order_id) {
+                        return res.status(200).send('OK');
+                    }
                     return res.status(400).send('Invalid signature or project slug');
                 }
 
