@@ -30,6 +30,8 @@ async function createQRISTransaction(orderId, amount) {
         if (response.data && response.data.status === 'success') {
             return response.data;
         } else {
+            console.log('[Pakasir Debug Payload]', payload);
+            console.log('[Pakasir Debug Response]', response.data);
             throw new Error(response.data?.message || 'Gagal membuat QRIS di Pakasir.');
         }
     } catch (error) {
