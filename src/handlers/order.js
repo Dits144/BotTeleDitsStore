@@ -213,6 +213,10 @@ module.exports = (bot) => {
                     if (result.success) {
                         const txSuccess = result.transaction;
                         
+                        const db = await require('../database/db').getDB();
+                        const userRec = await db.get('SELECT * FROM users WHERE id = ?', [txSuccess.user_id]);
+                        const telegramId = userRec ? userRec.telegram_id : txSuccess.user_id;
+
                         let text = `✅ Pembayaran Berhasil\n`;
                         text += `📅 Tanggal : ${require('../utils/time').formatDateTimeWIB()}\n\n`;
                         text += `Informasi Pembelian:\n`;
@@ -221,9 +225,9 @@ module.exports = (bot) => {
                         text += `Total Pembayaran: Rp ${formatRupiah(txSuccess.total_price)}\n\n`;
                         text += `🔐 Account Details\n`;
                         
-                        await bot.telegram.sendMessage(txSuccess.user_id, text);
+                        await bot.telegram.sendMessage(telegramId, text);
                         for (const item of result.items) {
-                            await bot.telegram.sendMessage(txSuccess.user_id, item);
+                            await bot.telegram.sendMessage(telegramId, item);
                         }
                         
                         const { getVariantById, getProductById } = require('../services/productService');
@@ -243,13 +247,10 @@ module.exports = (bot) => {
                         tnc += `Thank you for your purchase 🙏\n`;
                         tnc += `If you need help, please contact admin.`;
                         
-                        await bot.telegram.sendMessage(txSuccess.user_id, tnc).catch(console.error);
-                        
-                        const { getUserById } = require('../services/userService');
-                        const user = await getUserById(txSuccess.user_id);
+                        await bot.telegram.sendMessage(telegramId, tnc).catch(console.error);
                         
                         const { sendTestimoni } = require('../utils/testimoni');
-                        sendTestimoni(bot, { total_price: txSuccess.total_price, payment_method: 'qris_dynamic', invoice_id: txSuccess.invoice_id }, product, variant, user);
+                        sendTestimoni(bot, { total_price: txSuccess.total_price, payment_method: 'qris_dynamic', invoice_id: txSuccess.invoice_id }, product, variant, userRec);
                         
                         return ctx.answerCbQuery('✅ Pembayaran berhasil diterima! Akun telah dikirim.', { show_alert: true });
                     } else if (result.outOfStock) {

@@ -84,6 +84,10 @@ async function startBot() {
                     if (result.success) {
                         const tx = result.transaction;
                         
+                        const db = await getDB();
+                        const userRec = await db.get('SELECT * FROM users WHERE id = ?', [tx.user_id]);
+                        const telegramId = userRec ? userRec.telegram_id : tx.user_id;
+
                         let text = `✅ Pembayaran Berhasil\n`;
                         text += `📅 Tanggal : ${require('./utils/time').formatDateTimeWIB()}\n\n`;
                         text += `Informasi Pembelian:\n`;
@@ -93,9 +97,9 @@ async function startBot() {
                         text += `🔐 Account Details\n`;
                         
                         // Send account details
-                        bot.telegram.sendMessage(tx.user_id, text).then(async () => {
+                        bot.telegram.sendMessage(telegramId, text).then(async () => {
                             for (const item of result.items) {
-                                await bot.telegram.sendMessage(tx.user_id, item);
+                                await bot.telegram.sendMessage(telegramId, item);
                             }
                             
                             const { getVariantById, getProductById } = require('./services/productService');
@@ -115,17 +119,17 @@ async function startBot() {
                             tnc += `Thank you for your purchase 🙏\n`;
                             tnc += `If you need help, please contact admin.`;
                             
-                            await bot.telegram.sendMessage(tx.user_id, tnc).catch(console.error);
-                            
-                            const { getUserById } = require('./services/userService');
-                            const user = await getUserById(tx.user_id);
+                            await bot.telegram.sendMessage(telegramId, tnc).catch(console.error);
                             
                             const { sendTestimoni } = require('./utils/testimoni');
-                            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_dynamic', invoice_id: tx.invoice_id }, product, variant, user);
+                            sendTestimoni(bot, { total_price: tx.total_price, payment_method: 'qris_dynamic', invoice_id: tx.invoice_id }, product, variant, userRec);
                         }).catch(console.error);
                     } else if (result.outOfStock) {
                         const tx = result.transaction;
-                        bot.telegram.sendMessage(tx.user_id, `⚠️ Pembayaran Anda telah diterima untuk invoice ${tx.invoice_id}, namun mohon maaf stok produk sedang habis. Admin akan segera memproses refund atau mengirim akun secara manual. Silakan hubungi admin.`);
+                        const db = await getDB();
+                        const userRec = await db.get('SELECT * FROM users WHERE id = ?', [tx.user_id]);
+                        const telegramId = userRec ? userRec.telegram_id : tx.user_id;
+                        bot.telegram.sendMessage(telegramId, `⚠️ Pembayaran Anda telah diterima untuk invoice ${tx.invoice_id}, namun mohon maaf stok produk sedang habis. Admin akan segera memproses refund atau mengirim akun secara manual. Silakan hubungi admin.`);
                         
                         // Notify owner
                         if (env.OWNER_ID) {
