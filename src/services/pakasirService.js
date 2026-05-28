@@ -27,7 +27,7 @@ async function createQRISTransaction(orderId, amount) {
             timeout: 15000
         });
 
-        if (response.data && response.data.status === 'success') {
+        if (response.data && response.data.payment) {
             return response.data;
         } else {
             console.log('[Pakasir Debug Payload]', payload);
